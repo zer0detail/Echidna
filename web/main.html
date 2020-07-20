@@ -1,15 +1,14 @@
 <h1>Echidna Scanner</h1>
 
 
-
 {{if .Started}}
 <h2>Scanner running</h2>
-Pages of Plugin information retrieved: {{.Info.Page}}/{{.Info.Pages}}
-Plugins Scanned: {{.FilesScanned}}/{{.Info.Results}}
+Pages of Plugin information retrieved: <b>{{.Info.Page}}/{{.Info.Pages}}</b><br>
+Plugins Scanned: <b>{{.FilesScanned}}/{{.Info.Results}}</b>
 
 {{else}}
 <h2>Scanner idle, click here to start.</h2>
 <form action="/begin">
-    <input type="button">Begin Scanning</button>
+    <input type="submit">Begin Scanning</button>
 </form>
 {{end}}

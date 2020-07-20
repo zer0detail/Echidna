@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -16,7 +17,7 @@ func Start() {
 }
 
 func echidnaStatus(w http.ResponseWriter, r *http.Request) {
-	html, err := template.ParseFiles("\\web\\main.html")
+	html, err := template.ParseFiles("web\\main.html")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,7 +25,8 @@ func echidnaStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func beginScanning(w http.ResponseWriter, r *http.Request) {
-	wp.AllPluginScan()
+	go wp.AllPluginScan()
+	fmt.Println("Scanner started..")
 	wp.PluginList.Started = true
 	http.Redirect(w, r, "/", http.StatusFound)
 }
