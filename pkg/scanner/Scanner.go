@@ -2,11 +2,11 @@ package scanner
 
 import (
 	"archive/zip"
-	"fmt"
 	"io/ioutil"
 	"strings"
 
 	vulnerabilities "github.com/Paraflare/Echidna/pkg/scanner/vulnerabilities"
+	log "github.com/sirupsen/logrus"
 )
 
 // Results is a struct for storing the results of every vulnerable file that was scanned within a plugins archive
@@ -21,7 +21,11 @@ func ZipScan(zipPath string, scanResults *Results) error {
 
 	files, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return fmt.Errorf("Could not open zip file %s in scan() function with error\n%s", zipPath, err)
+		log.WithFields(log.Fields{
+			"file":  zipPath,
+			"error": err,
+		}).Error("Could not open Zip file. Skipping..")
+		return err
 	}
 	defer files.Close()
 
@@ -30,19 +34,32 @@ func ZipScan(zipPath string, scanResults *Results) error {
 		if strings.HasSuffix(file.Name, ".php") {
 			r, err := file.Open()
 			if err != nil {
-				return fmt.Errorf("Could not read file %s in scan() with error\n%s", file.Name, err)
+				log.WithFields(log.Fields{
+					"file":  file.Name,
+					"error": err,
+					"info":  file.FileInfo(),
+				}).Warn("Could not open php file. Skipping..")
+				continue
 			}
 			defer r.Close()
 
 			var content []byte
 			content, err = ioutil.ReadAll(r)
 			if err != nil {
-				return fmt.Errorf("Could not read %s contents in scan with error\n%s", file.Name, err)
+				log.WithFields(log.Fields{
+					"file":  file.Name,
+					"error": err,
+				}).Warn("Could not read php file. Skipping..")
+				continue
 			}
 
 			vulns, err := vulnerabilities.XSSscan(content)
 			if err != nil {
-				return fmt.Errorf("error Scanning file %s in ZipScan() with error\n%s", file.Name, err)
+				log.WithFields(log.Fields{
+					"file":  file.Name,
+					"error": err,
+				}).Warn("Error returned while scanning file for XSS. Skipping..")
+				continue
 			}
 
 			if vulns.Matches != nil {

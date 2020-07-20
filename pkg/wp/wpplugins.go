@@ -252,7 +252,7 @@ func (p *Plugin) VulnScan(filesScanned *int, errChan chan error) {
 
 	err = scanner.ZipScan(p.OutPath, &scanResults)
 	if err != nil {
-		errChan <- err
+		return
 	}
 
 	if len(scanResults.Results) > 0 {
@@ -269,6 +269,7 @@ func (p *Plugin) VulnScan(filesScanned *int, errChan chan error) {
 		return
 
 	}
+
 	err = os.Remove(p.OutPath)
 	if err != nil {
 		errChan <- err

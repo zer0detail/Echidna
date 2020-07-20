@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -57,6 +59,13 @@ func SendRequest(uri string) ([]byte, error) {
 		defer res.Body.Close()
 	}
 
+	if res.StatusCode != 200 {
+		log.WithFields(log.Fields{
+			"status": res.StatusCode,
+			"URI":    uri,
+		}).Warn("WordPress Plugin server did not reply with 200 OK.")
+	}
+
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
@@ -81,6 +90,13 @@ func Download(filepath string, uri string) error {
 
 	if res.Body != nil {
 		defer res.Body.Close()
+	}
+
+	if res.StatusCode != 200 {
+		log.WithFields(log.Fields{
+			"status": res.StatusCode,
+			"URI":    uri,
+		}).Warn("WordPress Plugin server did not reply with 200 OK.")
 	}
 
 	out, err := os.Create(filepath)
