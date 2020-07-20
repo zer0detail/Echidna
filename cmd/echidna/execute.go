@@ -3,7 +3,6 @@ package echidna
 import (
 	"log"
 
-	"github.com/Paraflare/Echidna/pkg/wp"
 	"github.com/Paraflare/Echidna/web"
 	"github.com/gookit/color"
 )
@@ -15,16 +14,17 @@ func init() {
 		log.Fatal(err)
 	}
 	setupCloseHandler()
+	greeting()
 }
 
 // Execute is the entry point for echidna
 func Execute() {
-	mainErrChan := make(chan error)
-	greeting()
 	go web.Start()
-	go wp.AllPluginScan(mainErrChan)
-	err := <-mainErrChan
-	log.Fatal(err)
+	// go wp.AllPluginScan()
+	for {
+
+	}
+
 }
 
 func greeting() {

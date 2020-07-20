@@ -30,7 +30,7 @@ var (
 
 // AllPluginScan is the main word press plugin scanner function that controls
 // the execution flow of a full scan
-func AllPluginScan(mainErrChan chan error) {
+func AllPluginScan() {
 
 	errChan := make(chan error)
 	// PluginList, err :
@@ -66,10 +66,10 @@ func AllPluginScan(mainErrChan chan error) {
 					sem.Release(1)
 				}()
 
-				// color.Yellow.Print("Plugin count: ")
-				// color.Gray.Printf("%d\t", len(PluginList.Plugins))
-				// color.Yellow.Print("Files Scanned: ")
-				// color.Gray.Printf("%d\n", PluginList.FilesScanned)
+				color.Yellow.Print("Plugin count: ")
+				color.Gray.Printf("%d\t", len(PluginList.Plugins))
+				color.Yellow.Print("Files Scanned: ")
+				color.Gray.Printf("%d\n", PluginList.FilesScanned)
 			}
 
 			// If we haven't finished pulling the list of plugins from the store, grab another page and
@@ -97,6 +97,7 @@ type Plugins struct {
 	Plugins      []Plugin
 	URI          string
 	FilesScanned int
+	Started      bool
 }
 
 // NewPlugins is the constructor for creating a new *Plugins object with initial data
