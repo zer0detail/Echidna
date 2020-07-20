@@ -13,3 +13,6 @@
 
 .test/
 
+# tool specific dirs
+current/
+inspect/
