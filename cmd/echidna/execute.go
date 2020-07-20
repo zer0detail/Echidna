@@ -124,5 +124,4 @@ func deleteCurrentDir() {
 	if err != nil {
 		log.Fatal("Failed to remove Current/ directory and some subfiles. Please remove them manually")
 	}
-
 }
