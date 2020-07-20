@@ -24,6 +24,8 @@ var (
 	sem          = semaphore.NewWeighted(int64(100))
 	seed         = rand.NewSource(time.Now().Unix())
 	randomPicker = rand.New(seed)
+	// PluginList exported allows the web server to retrieve its properties for display
+	PluginList, _ = NewPlugins()
 )
 
 // AllPluginScan is the main word press plugin scanner function that controls
@@ -31,17 +33,17 @@ var (
 func AllPluginScan(mainErrChan chan error) {
 
 	errChan := make(chan error)
-	pluginList, err := NewPlugins()
-	if err != nil {
-		mainErrChan <- err
-	}
+	// PluginList, err :
+	// if err != nil {
+	// 	mainErrChan <- err
+	// }
 	ctx := context.Background()
 
 	// Initial Plugin Object setup. Add the reusable http client and the wp plugins URI properties
-	color.Yellow.Printf("Found %d pages of plugins to scan..\n", pluginList.Info.Pages)
+	//color.Yellow.Printf("Found %d pages of plugins to scan..\n", PluginList.Info.Pages)
 
 	// Loop until we have scanned ALL plugins
-	for pluginList.filesScanned != pluginList.Info.Results {
+	for PluginList.FilesScanned != PluginList.Info.Results {
 
 		select {
 		// every  time we get back to the top of the loop do a non-blocking check of
@@ -51,32 +53,32 @@ func AllPluginScan(mainErrChan chan error) {
 			fmt.Printf("Error channel received error: \n%s\n", err)
 		default:
 			// if we have plugins, scan them
-			if len(pluginList.Plugins) > 0 {
+			if len(PluginList.Plugins) > 0 {
 				sem.Acquire(ctx, 1)
 				// Choose a random plugin
-				randPluginIndex := randomPicker.Intn(len(pluginList.Plugins))
-				plugin := pluginList.Plugins[randPluginIndex]
+				randPluginIndex := randomPicker.Intn(len(PluginList.Plugins))
+				plugin := PluginList.Plugins[randPluginIndex]
 				// Remove it from the list
-				pluginList.RemovePlugin(randPluginIndex)
+				PluginList.RemovePlugin(randPluginIndex)
 
 				go func() {
-					plugin.VulnScan(&pluginList.filesScanned, errChan)
+					plugin.VulnScan(&PluginList.FilesScanned, errChan)
 					sem.Release(1)
 				}()
 
-				color.Yellow.Print("Plugin count: ")
-				color.Gray.Printf("%d\t", len(pluginList.Plugins))
-				color.Yellow.Print("Files Scanned: ")
-				color.Gray.Printf("%d\n", pluginList.filesScanned)
+				// color.Yellow.Print("Plugin count: ")
+				// color.Gray.Printf("%d\t", len(PluginList.Plugins))
+				// color.Yellow.Print("Files Scanned: ")
+				// color.Gray.Printf("%d\n", PluginList.FilesScanned)
 			}
 
 			// If we haven't finished pulling the list of plugins from the store, grab another page and
-			// add it to pluginList.Plugins
-			if pluginList.Info.Page <= pluginList.Info.Pages {
+			// add it to PluginList.Plugins
+			if PluginList.Info.Page <= PluginList.Info.Pages {
 				sem.Acquire(ctx, 1)
 				go func() {
-					pluginList.Info.Page++
-					pluginList.AddPlugins(errChan)
+					PluginList.Info.Page++
+					PluginList.AddPlugins(errChan)
 					sem.Release(1)
 				}()
 			}
@@ -94,7 +96,7 @@ type Plugins struct {
 	} `json:"info"`
 	Plugins      []Plugin
 	URI          string
-	filesScanned int
+	FilesScanned int
 }
 
 // NewPlugins is the constructor for creating a new *Plugins object with initial data
