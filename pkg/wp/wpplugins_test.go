@@ -6,10 +6,13 @@ import (
 	"testing"
 )
 
-var plugins = NewPlugins()
+var errChan = make(chan error)
 
 func TestNewPlugins(t *testing.T) {
-	testPlugins := NewPlugins()
+	testPlugins, err := NewPlugins()
+	if err != nil {
+		t.Errorf("NewPlugins() call error with error:\n%s", err)
+	}
 	pluginType := reflect.TypeOf(testPlugins)
 	if pluginType.String() != "*wp.Plugins" {
 		t.Errorf("TestPlugins did not initialize as type *Plugins.\nWant: *Plugins, Got: %s\n", pluginType)
@@ -20,8 +23,12 @@ func TestNewPlugins(t *testing.T) {
 }
 
 func TestAddPlugins(t *testing.T) {
+	plugins, err := NewPlugins()
+	if err != nil {
+		t.Errorf("NewPlugins() call error with error:\n%s", err)
+	}
 	beforePlugins := len(plugins.Plugins)
-	plugins.AddPlugins()
+	plugins.AddPlugins(errChan)
 	afterPlugins := len(plugins.Plugins)
 
 	if afterPlugins <= beforePlugins {
@@ -30,7 +37,11 @@ func TestAddPlugins(t *testing.T) {
 }
 
 func TestRemovePlugin(t *testing.T) {
-	plugins.AddPlugins()
+	plugins, err := NewPlugins()
+	if err != nil {
+		t.Errorf("NewPlugins() call error with error:\n%s", err)
+	}
+	plugins.AddPlugins(errChan)
 	beforeRemove := len(plugins.Plugins)
 	plugins.RemovePlugin(1)
 	afterRemove := len(plugins.Plugins)
@@ -41,7 +52,11 @@ func TestRemovePlugin(t *testing.T) {
 }
 
 func TestPluginSetOutPath(t *testing.T) {
-	plugins.AddPlugins()
+	plugins, err := NewPlugins()
+	if err != nil {
+		t.Errorf("NewPlugins() call error with error:\n%s", err)
+	}
+	plugins.AddPlugins(errChan)
 	plugin := plugins.Plugins[1]
 	plugin.setOutPath()
 	if !(strings.Contains(plugin.OutPath, "current")) {

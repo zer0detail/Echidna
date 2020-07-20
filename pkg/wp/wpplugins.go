@@ -28,48 +28,60 @@ var (
 
 // AllPluginScan is the main word press plugin scanner function that controls
 // the execution flow of a full scan
-func AllPluginScan() {
-	pluginList := NewPlugins()
+func AllPluginScan(errChan chan error) {
+	pluginList, err := NewPlugins()
+	if err != nil {
+		errChan <- err
+	}
+	ctx := context.Background()
+
 	// Initial Plugin Object setup. Add the reusable http client and the wp plugins URI properties
 	color.Yellow.Printf("Found %d pages of plugins to scan..\n", pluginList.Info.Pages)
 
-	ctx := context.Background()
-
+	// Loop until we have scanned ALL plugins
 	for pluginList.filesScanned != pluginList.Info.Results {
 
-		// if we have plugins, scan them
-		if len(pluginList.Plugins) > 0 {
-			sem.Acquire(ctx, 1)
-			// Choose a random plugin
-			randPluginIndex := randomPicker.Intn(len(pluginList.Plugins))
-			plugin := pluginList.Plugins[randPluginIndex]
-			// Remove it from the list
-			pluginList.RemovePlugin(randPluginIndex)
+		select {
+		// every  time we get back to the top of the loop do a non-blocking check of
+		// the errors channel. This is so we can constantly check for failed goroutines.
+		// without hanging on a blocking channel read.
+		case err := <-errChan:
+			errChan <- err
+			return
+		default:
+			// if we have plugins, scan them
+			if len(pluginList.Plugins) > 0 {
+				sem.Acquire(ctx, 1)
+				// Choose a random plugin
+				randPluginIndex := randomPicker.Intn(len(pluginList.Plugins))
+				plugin := pluginList.Plugins[randPluginIndex]
+				// Remove it from the list
+				pluginList.RemovePlugin(randPluginIndex)
 
-			go func() {
-				plugin.VulnScan(&pluginList.filesScanned)
-				sem.Release(1)
-			}()
+				go func() {
+					plugin.VulnScan(&pluginList.filesScanned, errChan)
+					sem.Release(1)
+				}()
 
-			color.Yellow.Print("Plugin count: ")
-			color.Gray.Printf("%d\t", len(pluginList.Plugins))
-			color.Yellow.Print("Files Scanned: ")
-			color.Gray.Printf("%d\n", pluginList.filesScanned)
+				color.Yellow.Print("Plugin count: ")
+				color.Gray.Printf("%d\t", len(pluginList.Plugins))
+				color.Yellow.Print("Files Scanned: ")
+				color.Gray.Printf("%d\n", pluginList.filesScanned)
+			}
+
+			// If we haven't finished pulling the list of plugins from the store, grab another page and
+			// add it to pluginList.Plugins
+			if pluginList.Info.Page <= pluginList.Info.Pages {
+				sem.Acquire(ctx, 1)
+				go func() {
+					pluginList.AddPlugins(errChan)
+					sem.Release(1)
+				}()
+				// if err != nil {
+				// 	log.Fatal(err)
+				// }
+			}
 		}
-
-		// If we haven't finished pulling the list of plugins from the store, grab another page and
-		// add it to pluginList.Plugins
-		if pluginList.Info.Page <= pluginList.Info.Pages {
-			sem.Acquire(ctx, 1)
-			go func() {
-				pluginList.AddPlugins()
-				sem.Release(1)
-			}()
-			// if err != nil {
-			// 	log.Fatal(err)
-			// }
-		}
-
 	}
 	fmt.Println("Finished scanning all plugins. Happy Hunting!")
 }
@@ -87,19 +99,22 @@ type Plugins struct {
 }
 
 // NewPlugins is the constructor for creating a new *Plugins object with initial data
-func NewPlugins() *Plugins {
+func NewPlugins() (*Plugins, error) {
 	var plugins Plugins
 
 	plugins.URI = pluginAPI
 	plugins.Info.Page = 1
 
-	plugins.AddInfo()
+	err := plugins.AddInfo()
+	if err != nil {
+		return nil, err
+	}
 
-	return &plugins
+	return &plugins, nil
 }
 
 // AddPlugins retrieves the next page of plugins from the WP store and adds them to the plugins object for scanning
-func (w *Plugins) AddPlugins() error {
+func (w *Plugins) AddPlugins(errChan chan error) {
 
 	var nextPluginList Plugins
 
@@ -107,17 +122,17 @@ func (w *Plugins) AddPlugins() error {
 
 	rawPluginList, err := requests.SendRequest(uri)
 	if err != nil {
-		return err
+		errChan <- err
+		return
 	}
 	err = json.Unmarshal(rawPluginList, &nextPluginList)
 	if err != nil {
-		return err
+		errChan <- err
+		return
 	}
 	for _, plugin := range nextPluginList.Plugins {
 		w.Plugins = append((*w).Plugins, plugin)
 	}
-
-	return nil
 }
 
 // AddInfo retrieve the number of pages in the WP plugin store and the number of plugins to scan
@@ -214,20 +229,20 @@ func (p *Plugin) setDaysSinceUpdate() error {
 
 // VulnScan downloads the plugin, scans each php file for vulnerabilitys and sets it aside
 // for later inspection if somethings found. Otherwise the plugin is then deleted.
-func (p *Plugin) VulnScan(filesScanned *int) (bool, error) {
+func (p *Plugin) VulnScan(filesScanned *int, errChan chan error) {
 	*filesScanned++
 	err := p.setDaysSinceUpdate()
 	if err != nil {
-		return false, err
+		errChan <- err
 	}
 	err = p.setOutPath()
 	if err != nil {
-		return false, err
+		errChan <- err
 	}
 
 	err = requests.Download(p.OutPath, p.DownloadLink)
 	if err != nil {
-		return false, err
+		errChan <- err
 	}
 
 	scanResults := scanner.Results{
@@ -237,29 +252,27 @@ func (p *Plugin) VulnScan(filesScanned *int) (bool, error) {
 
 	err = scanner.ZipScan(p.OutPath, &scanResults)
 	if err != nil {
-		return false, err
+		errChan <- err
 	}
 
 	if len(scanResults.Results) > 0 {
 		err := p.moveToInspect()
 		if err != nil {
-			return false, err
+			errChan <- err
 		}
 		err = p.saveResults(&scanResults)
 		if err != nil {
-			return false, err
+			errChan <- err
 		}
 		color.Green.Printf("Potential Vulnerabilities found in plugin: %s\n", p.Name)
 		color.Green.Println("Moving plugin to inspect/ folder.")
-		return true, nil
+		return
 
 	}
 	err = os.Remove(p.OutPath)
 	if err != nil {
-		return false, err
+		errChan <- err
 	}
-
-	return false, nil
 }
 
 func (p *Plugin) moveToInspect() error {
