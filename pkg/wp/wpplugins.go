@@ -1,9 +1,11 @@
 package wp
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -13,9 +15,64 @@ import (
 	"github.com/Paraflare/Echidna/pkg/scanner"
 	"github.com/Paraflare/Echidna/pkg/scanner/vulnerabilities"
 	"github.com/gookit/color"
+	"golang.org/x/sync/semaphore"
 )
 
 const pluginAPI string = "https://api.wordpress.org/plugins/info/1.2/?action=query_plugins&request[per_page]=400&request[page]="
+
+var (
+	sem          = semaphore.NewWeighted(int64(70))
+	seed         = rand.NewSource(time.Now().Unix())
+	randomPicker = rand.New(seed)
+)
+
+// AllPluginScan is the main word press plugin scanner function that controls
+// the execution flow of a full scan
+func AllPluginScan() {
+	pluginList := NewPlugins()
+	// Initial Plugin Object setup. Add the reusable http client and the wp plugins URI properties
+	color.Yellow.Printf("Found %d pages of plugins to scan..\n", pluginList.Info.Pages)
+
+	ctx := context.Background()
+
+	for pluginList.filesScanned != pluginList.Info.Results {
+
+		// if we have plugins, scan them
+		if len(pluginList.Plugins) > 0 {
+			sem.Acquire(ctx, 1)
+			// Choose a random plugin
+			randPluginIndex := randomPicker.Intn(len(pluginList.Plugins))
+			plugin := pluginList.Plugins[randPluginIndex]
+			// Remove it from the list
+			pluginList.RemovePlugin(randPluginIndex)
+
+			go func() {
+				plugin.VulnScan(&pluginList.filesScanned)
+				sem.Release(1)
+			}()
+
+			color.Yellow.Print("Plugin count: ")
+			color.Gray.Printf("%d\t", len(pluginList.Plugins))
+			color.Yellow.Print("Files Scanned: ")
+			color.Gray.Printf("%d\n", pluginList.filesScanned)
+		}
+
+		// If we haven't finished pulling the list of plugins from the store, grab another page and
+		// add it to pluginList.Plugins
+		if pluginList.Info.Page <= pluginList.Info.Pages {
+			sem.Acquire(ctx, 1)
+			go func() {
+				pluginList.AddPlugins()
+				sem.Release(1)
+			}()
+			// if err != nil {
+			// 	log.Fatal(err)
+			// }
+		}
+
+	}
+	fmt.Println("Finished scanning all plugins. Happy Hunting!")
+}
 
 // Plugins unmarshals the Word Press plugins API results
 type Plugins struct {
@@ -24,8 +81,9 @@ type Plugins struct {
 		Pages   int `json:"pages"`
 		Results int `json:"results"`
 	} `json:"info"`
-	Plugins []Plugin
-	URI     string
+	Plugins      []Plugin
+	URI          string
+	filesScanned int
 }
 
 // NewPlugins is the constructor for creating a new *Plugins object with initial data
