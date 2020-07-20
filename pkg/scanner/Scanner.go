@@ -37,7 +37,6 @@ func ZipScan(zipPath string, scanResults *Results) error {
 				log.WithFields(log.Fields{
 					"file":  file.Name,
 					"error": err,
-					"info":  file.FileInfo(),
 				}).Warn("Could not open php file. Skipping..")
 				continue
 			}

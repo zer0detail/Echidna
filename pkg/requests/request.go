@@ -11,11 +11,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const (
-	maxIdleConnections int = 20
-	//requestTimeout     int = -1
-)
-
 var client *http.Client
 
 func init() {
@@ -24,12 +19,17 @@ func init() {
 
 // createHTTPClient for connection re-use
 func createHTTPClient() *http.Client {
-	client := &http.Client{
-		Transport: &http.Transport{
-			MaxIdleConnsPerHost: maxIdleConnections,
-		},
-		Timeout: -1, //time.Duration(requestTimeout) * time.Second,
+	// Customize the Transport to have larger connection pool
+	defaultRoundTripper := http.DefaultTransport
+	defaultTransportPointer, ok := defaultRoundTripper.(*http.Transport)
+	if !ok {
+		panic(fmt.Sprintf("defaultRoundTripper not an *http.Transport"))
 	}
+	defaultTransport := *defaultTransportPointer // dereference it to get a copy of the struct that the pointer points to
+	defaultTransport.MaxIdleConns = 100
+	defaultTransport.MaxIdleConnsPerHost = 100
+
+	client = &http.Client{Transport: &defaultTransport}
 
 	return client
 }
@@ -42,7 +42,6 @@ func SendRequest(uri string) ([]byte, error) {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "Echidna V1.0")
-
 	res, err := client.Do(req)
 	if err != nil {
 		if strings.Contains(string(err.Error()), "GOAWAY") {
@@ -82,7 +81,6 @@ func Download(filepath string, uri string) error {
 		return fmt.Errorf("NewRequest in download() has failed with error\n %s", err)
 	}
 	req.Header.Set("User-Agent", "Echidna V1.0")
-
 	res, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("client.Do() in download() has failed with error\n %s", err)
@@ -90,6 +88,11 @@ func Download(filepath string, uri string) error {
 
 	if res.Body != nil {
 		defer res.Body.Close()
+	} else {
+		log.WithFields(log.Fields{
+			"status": res.StatusCode,
+			"URI":    uri,
+		}).Warn("response body is nil")
 	}
 
 	if res.StatusCode != 200 {
@@ -98,7 +101,6 @@ func Download(filepath string, uri string) error {
 			"URI":    uri,
 		}).Warn("WordPress Plugin server did not reply with 200 OK.")
 	}
-
 	out, err := os.Create(filepath)
 	if err != nil {
 		return fmt.Errorf("Failed to create file with os.create() for %s with error\n%s", filepath, err)
@@ -114,7 +116,5 @@ func Download(filepath string, uri string) error {
 		}
 		return fmt.Errorf("Failed to write bytes to file for %s with error\n%s", filepath, err)
 	}
-
 	return nil
-
 }

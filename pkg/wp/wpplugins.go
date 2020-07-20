@@ -21,17 +21,19 @@ import (
 const pluginAPI string = "https://api.wordpress.org/plugins/info/1.2/?action=query_plugins&request[per_page]=400&request[page]="
 
 var (
-	sem          = semaphore.NewWeighted(int64(70))
+	sem          = semaphore.NewWeighted(int64(100))
 	seed         = rand.NewSource(time.Now().Unix())
 	randomPicker = rand.New(seed)
 )
 
 // AllPluginScan is the main word press plugin scanner function that controls
 // the execution flow of a full scan
-func AllPluginScan(errChan chan error) {
+func AllPluginScan(mainErrChan chan error) {
+
+	errChan := make(chan error)
 	pluginList, err := NewPlugins()
 	if err != nil {
-		errChan <- err
+		mainErrChan <- err
 	}
 	ctx := context.Background()
 
@@ -46,8 +48,7 @@ func AllPluginScan(errChan chan error) {
 		// the errors channel. This is so we can constantly check for failed goroutines.
 		// without hanging on a blocking channel read.
 		case err := <-errChan:
-			errChan <- err
-			return
+			fmt.Printf("Error channel received error: \n%s\n", err)
 		default:
 			// if we have plugins, scan them
 			if len(pluginList.Plugins) > 0 {
@@ -74,12 +75,10 @@ func AllPluginScan(errChan chan error) {
 			if pluginList.Info.Page <= pluginList.Info.Pages {
 				sem.Acquire(ctx, 1)
 				go func() {
+					pluginList.Info.Page++
 					pluginList.AddPlugins(errChan)
 					sem.Release(1)
 				}()
-				// if err != nil {
-				// 	log.Fatal(err)
-				// }
 			}
 		}
 	}

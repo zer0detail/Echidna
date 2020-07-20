@@ -17,8 +17,8 @@ func init() {
 
 // Execute is the entry point for echidna
 func Execute() {
-	errChan := make(chan error)
-	go wp.AllPluginScan(errChan)
-	err := <-errChan
+	mainErrChan := make(chan error)
+	go wp.AllPluginScan(mainErrChan)
+	err := <-mainErrChan
 	log.Fatal(err)
 }
