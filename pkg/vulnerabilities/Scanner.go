@@ -51,7 +51,7 @@ func ZipScan(zipPath string, scanResults *Results) error {
 				continue
 			}
 
-			vulns, err := XSSscan(content)
+			vulns, err := XSS(content)
 			if err != nil {
 				log.WithFields(log.Fields{
 					"file":  file.Name,

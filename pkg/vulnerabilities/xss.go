@@ -8,8 +8,8 @@ import (
 	"github.com/gookit/color"
 )
 
-// XSSscan is the XSS module that will scan a php file for XSS vulns
-func XSSscan(content []byte) (VulnResults, error) {
+// XSS is the XSS module that will scan a php file for XSS vulns
+func XSS(content []byte) (VulnResults, error) {
 
 	var vulnResults VulnResults
 
@@ -21,13 +21,13 @@ func XSSscan(content []byte) (VulnResults, error) {
 	filter := "esc_|sanitize|isset|int|htmlentities|htmlspecial|intval|wp_strip"
 	reFilter, err := regexp.Compile(filter)
 	if err != nil {
-		return vulnResults, fmt.Errorf("error compiling XSS filter in XSSScan() with error\n%s", err)
+		return vulnResults, fmt.Errorf("error compiling XSS filter in XSS() with error\n%s", err)
 	}
 
 	for _, signature := range signatures {
 		re, err := regexp.Compile(signature)
 		if err != nil {
-			return vulnResults, fmt.Errorf("error compiling signature %s in XSSscan() with error\n%s", signature, err)
+			return vulnResults, fmt.Errorf("error compiling signature %s in XSS() with error\n%s", signature, err)
 		}
 		matches := re.FindAllString(string(content), -1)
 		if matches != nil {
