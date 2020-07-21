@@ -248,7 +248,7 @@ func (p *Plugin) VulnScan(filesScanned *int, errChan chan error) {
 
 	scanResults := vulnerabilities.Results{
 		Plugin:  p.Name,
-		Results: make(map[string][]vulnerabilities.VulnResults),
+		Modules: make(map[string][]vulnerabilities.VulnResults),
 	}
 
 	err = vulnerabilities.ZipScan(p.OutPath, &scanResults)
@@ -256,7 +256,7 @@ func (p *Plugin) VulnScan(filesScanned *int, errChan chan error) {
 		return
 	}
 
-	if len(scanResults.Results) > 0 {
+	if len(scanResults.Modules) > 0 {
 		err := p.moveToInspect()
 		if err != nil {
 			errChan <- err

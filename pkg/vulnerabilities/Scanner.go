@@ -8,15 +8,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var modules = map[string]func([]byte) (VulnResults, error){
+	"XSS":  XSS,
+	"SQLI": SQLI,
+}
+
 // Results is a struct for storing the results of every vulnerable file that was scanned within a plugins archive
 type Results struct {
 	Plugin  string
-	Results map[string][]VulnResults
+	Modules map[string][]VulnResults
 }
 
 // ZipScan opens zip files, finds PHP files and hands them over to vulnerability
 // modules for bug hunting.
-func ZipScan(zipPath string, scanResults *Results) error {
+func ZipScan(zipPath string, fileResults *Results) error {
 
 	files, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -51,19 +56,22 @@ func ZipScan(zipPath string, scanResults *Results) error {
 				continue
 			}
 
-			vulns, err := XSS(content)
-			if err != nil {
-				log.WithFields(log.Fields{
-					"file":  file.Name,
-					"error": err,
-				}).Warn("Error returned while scanning file for XSS. Skipping..")
-				continue
+			for module, moduleFunc := range modules {
+				vulns, err := moduleFunc(content)
+				if err != nil {
+					log.WithFields(log.Fields{
+						"file":  file.Name,
+						"error": err,
+					}).Warn("Error returned while scanning file for XSS. Skipping..")
+					continue
+				}
+
+				if vulns.Matches != nil {
+					vulns.File = file.Name
+					fileResults.Modules[module] = append(fileResults.Modules[module], vulns)
+				}
 			}
 
-			if vulns.Matches != nil {
-				vulns.File = file.Name
-				scanResults.Results["XSS"] = append(scanResults.Results["XSS"], vulns)
-			}
 		}
 	}
 
