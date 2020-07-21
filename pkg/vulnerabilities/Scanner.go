@@ -1,18 +1,17 @@
-package scanner
+package vulnerabilities
 
 import (
 	"archive/zip"
 	"io/ioutil"
 	"strings"
 
-	vulnerabilities "github.com/Paraflare/Echidna/pkg/scanner/vulnerabilities"
 	log "github.com/sirupsen/logrus"
 )
 
 // Results is a struct for storing the results of every vulnerable file that was scanned within a plugins archive
 type Results struct {
 	Plugin  string
-	Results map[string][]vulnerabilities.VulnResults
+	Results map[string][]VulnResults
 }
 
 // ZipScan opens zip files, finds PHP files and hands them over to vulnerability
@@ -52,7 +51,7 @@ func ZipScan(zipPath string, scanResults *Results) error {
 				continue
 			}
 
-			vulns, err := vulnerabilities.XSSscan(content)
+			vulns, err := XSSscan(content)
 			if err != nil {
 				log.WithFields(log.Fields{
 					"file":  file.Name,

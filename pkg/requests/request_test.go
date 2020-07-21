@@ -13,12 +13,12 @@ var (
 	outpath = dir + sep + ".." + sep + ".." + sep + ".test" + sep + "test.zip"
 )
 
-func TestConsts(t *testing.T) {
-	wantIdleConns := 20
-	if maxIdleConnections != wantIdleConns {
-		t.Errorf("maxIdleConnections constant is not expected value. Got: %d, want: %d\n", maxIdleConnections, wantIdleConns)
-	}
-}
+// func TestConsts(t *testing.T) {
+// 	wantIdleConns := 20
+// 	if maxIdleConnections != wantIdleConns {
+// 		t.Errorf("maxIdleConnections constant is not expected value. Got: %d, want: %d\n", maxIdleConnections, wantIdleConns)
+// 	}
+// }
 
 func TestCreateHTTPClient(t *testing.T) {
 

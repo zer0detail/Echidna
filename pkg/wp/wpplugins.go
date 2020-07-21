@@ -12,8 +12,7 @@ import (
 	"time"
 
 	"github.com/Paraflare/Echidna/pkg/requests"
-	"github.com/Paraflare/Echidna/pkg/scanner"
-	"github.com/Paraflare/Echidna/pkg/scanner/vulnerabilities"
+	"github.com/Paraflare/Echidna/pkg/vulnerabilities"
 	"github.com/gookit/color"
 	"golang.org/x/sync/semaphore"
 )
@@ -247,12 +246,12 @@ func (p *Plugin) VulnScan(filesScanned *int, errChan chan error) {
 		errChan <- err
 	}
 
-	scanResults := scanner.Results{
+	scanResults := vulnerabilities.Results{
 		Plugin:  p.Name,
 		Results: make(map[string][]vulnerabilities.VulnResults),
 	}
 
-	err = scanner.ZipScan(p.OutPath, &scanResults)
+	err = vulnerabilities.ZipScan(p.OutPath, &scanResults)
 	if err != nil {
 		return
 	}
@@ -293,7 +292,7 @@ func (p *Plugin) moveToInspect() error {
 	return nil
 }
 
-func (p *Plugin) saveResults(results *scanner.Results) error {
+func (p *Plugin) saveResults(results *vulnerabilities.Results) error {
 	file, err := json.MarshalIndent(results, "", " ")
 	if err != nil {
 		return fmt.Errorf("Could not MarshalIndent() results for file %s with error\n%s", p.Name, err)
