@@ -29,14 +29,13 @@ var (
 
 // AllPluginScan is the main word press plugin scanner function that controls
 // the execution flow of a full scan
-func AllPluginScan() {
+func AllPluginScan(ctx context.Context) {
 
 	errChan := make(chan error)
 	// PluginList, err :
 	// if err != nil {
 	// 	mainErrChan <- err
 	// }
-	ctx := context.Background()
 
 	// Initial Plugin Object setup. Add the reusable http client and the wp plugins URI properties
 	//color.Yellow.Printf("Found %d pages of plugins to scan..\n", PluginList.Info.Pages)
@@ -60,10 +59,10 @@ func AllPluginScan() {
 				// Remove it from the list
 				PluginList.RemovePlugin(randPluginIndex)
 
-				go func() {
+				go func(ctx context.Context) {
 					plugin.VulnScan(&PluginList.FilesScanned, errChan)
 					sem.Release(1)
-				}()
+				}(ctx)
 
 				color.Yellow.Print("Plugin count: ")
 				color.Gray.Printf("%d\t", len(PluginList.Plugins))
@@ -75,11 +74,11 @@ func AllPluginScan() {
 			// add it to PluginList.Plugins
 			if PluginList.Info.Page <= PluginList.Info.Pages {
 				sem.Acquire(ctx, 1)
-				go func() {
+				go func(ctx context.Context) {
 					PluginList.Info.Page++
 					PluginList.AddPlugins(errChan)
 					sem.Release(1)
-				}()
+				}(ctx)
 			}
 		}
 	}

@@ -1,30 +1,45 @@
 package echidna
 
 import (
+	"context"
+	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/Paraflare/Echidna/web"
 	"github.com/gookit/color"
 )
 
-func init() {
+var ctx context.Context
+
+// Execute is the entry point for echidna
+func Execute() {
 	// Create directories if they dont exist
 	err := createEchidnaDirs()
 	if err != nil {
 		log.Fatal(err)
 	}
-	setupCloseHandler()
+	// set up context for cancelling goroutines
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	// set up goroutine to catch CTRL+C and execute cleanup
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		fmt.Println("Ctrl+C detected. Cancelling GoRoutines.")
+		cancel()
+		time.Sleep(3 * time.Second)
+		fmt.Println("Attempting to remove current/ directory")
+		deleteCurrentDir()
+		os.Exit(0)
+	}()
+
 	greeting()
-}
-
-// Execute is the entry point for echidna
-func Execute() {
-	go web.Start()
-	// go wp.AllPluginScan()
-	for {
-
-	}
-
+	webStart()
 }
 
 func greeting() {

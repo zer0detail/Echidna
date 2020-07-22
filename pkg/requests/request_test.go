@@ -1,17 +1,40 @@
 package requests
 
+//  go test -coverprofile="coverage.out"
+//  go tool cover -html="coverage.out"
+
 import (
+	"bytes"
+	"errors"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 )
 
+// Mock the http.client's Do() func so we can do testing without making  requests
+type mockClient struct {
+}
+
+// Satisfy the HTTPClient interface. Pseudo Do() function
+func (m *mockClient) Do(req *http.Request) (*http.Response, error) {
+	return DoFunc(req)
+}
+
 var (
-	dir, _  = os.Getwd()
-	sep     = string(os.PathSeparator)
-	outpath = dir + sep + ".." + sep + ".." + sep + ".test" + sep + "test.zip"
+	dir, _   = os.Getwd()
+	sep      = string(os.PathSeparator)
+	outpath  = dir + sep + ".." + sep + ".." + sep + ".test" + sep + "test.zip"
+	dummyURI = "http://127.0.0.1:8080"
+	DoFunc   func(req *http.Request) (*http.Response, error)
 )
+
+func init() {
+	// Inject mock http client into request.go's client variable
+	client = &mockClient{}
+}
 
 // func TestConsts(t *testing.T) {
 // 	wantIdleConns := 20
@@ -29,44 +52,92 @@ func TestCreateHTTPClient(t *testing.T) {
 	}
 }
 
-func TestSendRequest(t *testing.T) {
-	exampleURI := "http://example.com"
-	body, err := SendRequest(exampleURI)
-	if err != nil {
-		t.Errorf("SendRequest(%s) failed with error\n%s", exampleURI, err)
+func TestSendRequestSuccess(t *testing.T) {
+	b := ioutil.NopCloser(bytes.NewReader([]byte("Success")))
+	DoFunc = func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 200,
+			Body:       b,
+		}, nil
 	}
-	want := "<title>Example Domain</title>"
+
+	body, err := SendRequest(dummyURI)
+	if err != nil {
+		t.Errorf("Mocked SendRequest(%s) failed with error\n%s", dummyURI, err)
+	}
+	want := "Success"
 	if !(strings.Contains(string(body), want)) {
-		t.Errorf("Body from example.com did not contain expected text.\nExpected: %s\nGot: %s", want, string(body))
+		t.Errorf("Mocked SendRequest() did not return expected body.\nExpected: %s\nGot: %s", want, string(body))
 	}
 }
 
-func TestBadURIs(t *testing.T) {
+func TestSendRequestPageNotFound(t *testing.T) {
+	b := ioutil.NopCloser(bytes.NewReader([]byte("this will 404 ")))
+	DoFunc = func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 404,
+			Body:       b,
+		}, nil
+	}
 	// Make sure SendRequest returns a protocol error when sending this malformed URI
-	exampleURI := "http/example.com"
-	_, err := SendRequest(exampleURI)
-	if !(strings.Contains(err.Error(), "unsupported protocol scheme")) {
-		t.Errorf("SendRequest(%s) failed with error\n%s", exampleURI, err)
-	}
-	err = Download(outpath, exampleURI)
-	if !(strings.Contains(err.Error(), "unsupported protocol scheme")) {
-		t.Errorf("Download(%s) failed with error\n%s", exampleURI, err)
+	//expectedErr := fmt.Sprintf("Received non 200 StatusCode in SendRequest().\nStatusCode: %d", 404)
+	_, err := SendRequest(dummyURI)
+	if !(strings.Contains(err.Error(), "non 200 StatusCode")) {
+		t.Errorf("Mocked SendRequest(%s) StatusCode check with error\n%s\nExpected: %s\n", dummyURI, err, "test") //expectedErr)
 	}
 }
 
-func TestDownload(t *testing.T) {
+func TestSendRequestDoError(t *testing.T) {
 
-	// Download askismet plugin since its pretty popular and likely to be downloadable
-	// for atleast the near future.
-	Download(outpath, "https://downloads.wordpress.org/plugin/akismet.4.1.6.zip")
-	_, err := os.Stat(outpath)
-	if os.IsNotExist(err) {
-		t.Errorf("Failed to download plugin to directory %s in TestDownload()\n", outpath)
+	b := ioutil.NopCloser(bytes.NewReader([]byte("Fail")))
+	dummyErr := "ERROR: Page Not Found"
+	DoFunc = func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 404,
+			Body:       b,
+		}, errors.New(dummyErr)
 	}
+	// Make sure SendRequest returns a protocol error when sending this malformed URI
 
-	err = os.Remove(outpath)
-	if err != nil {
-		t.Errorf("TestDownload() test failed to remove test file:\n%s\n", outpath)
+	_, err := SendRequest(dummyURI)
+	if !(strings.Contains(err.Error(), "Page Not Found")) {
+		t.Errorf("Mocked SendRequest(%s) failed with error\n%s\nExpected: %s\n", dummyURI, err, dummyErr)
 	}
-
 }
+
+func TestSendRequestGoAway(t *testing.T) {
+
+	b := ioutil.NopCloser(bytes.NewReader([]byte("dummy body")))
+	dummyErr := "GOAWAY"
+	DoFunc = func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 201,
+			Body:       b,
+		}, errors.New(dummyErr)
+	}
+	// Make sure SendRequest returns a protocol error when sending this malformed URI
+
+	_, err := SendRequest(dummyURI)
+	if !(strings.Contains(err.Error(), "Page Not Found")) {
+		t.Errorf("Mocked SendRequest(%s) failed with error\n%s\nExpected: %s\n", dummyURI, err, dummyErr)
+	}
+}
+
+// Commented out until I figure out mocking requirements for Download()
+
+// func TestDownload(t *testing.T) {
+
+// 	// Download askismet plugin since its pretty popular and likely to be downloadable
+// 	// for atleast the near future.
+// 	Download(outpath, "https://downloads.wordpress.org/plugin/akismet.4.1.6.zip")
+// 	_, err := os.Stat(outpath)
+// 	if os.IsNotExist(err) {
+// 		t.Errorf("Failed to download plugin to directory %s in TestDownload()\n", outpath)
+// 	}
+
+// 	err = os.Remove(outpath)
+// 	if err != nil {
+// 		t.Errorf("TestDownload() test failed to remove test file:\n%s\n", outpath)
+// 	}
+
+// }

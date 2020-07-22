@@ -1,4 +1,4 @@
-package web
+package echidna
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 )
 
 // Start is exported to allow /cmd/echidna/main.go execute() to start the web app side
-func Start() {
+func webStart() {
 	http.HandleFunc("/", echidnaStatus)
 	http.HandleFunc("/begin", beginScanning)
 	http.ListenAndServe("localhost:8080", nil)
@@ -25,7 +25,7 @@ func echidnaStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func beginScanning(w http.ResponseWriter, r *http.Request) {
-	go wp.AllPluginScan()
+	go wp.AllPluginScan(ctx)
 	fmt.Println("Scanner started..")
 	wp.PluginList.Started = true
 	http.Redirect(w, r, "/", http.StatusFound)

@@ -11,7 +11,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var client *http.Client
+// HTTPClient interface so we can mock http clients in testing
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+var client HTTPClient
 
 func init() {
 	client = createHTTPClient()
@@ -29,9 +34,9 @@ func createHTTPClient() *http.Client {
 	defaultTransport.MaxIdleConns = 100
 	defaultTransport.MaxIdleConnsPerHost = 100
 
-	client = &http.Client{Transport: &defaultTransport}
+	newClient := &http.Client{Transport: &defaultTransport}
 
-	return client
+	return newClient
 }
 
 // SendRequest sends a get request to an arbitrary site and returns the body
@@ -62,7 +67,8 @@ func SendRequest(uri string) ([]byte, error) {
 		log.WithFields(log.Fields{
 			"status": res.StatusCode,
 			"URI":    uri,
-		}).Warn("WordPress Plugin server did not reply with 200 OK.")
+		}).Warn("Server did not reply with 200 OK.")
+		return nil, fmt.Errorf("Received non 200 StatusCode in SendRequest().\nStatusCode: %d", res.StatusCode)
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
@@ -100,6 +106,7 @@ func Download(filepath string, uri string) error {
 			"status": res.StatusCode,
 			"URI":    uri,
 		}).Warn("WordPress Plugin server did not reply with 200 OK.")
+		return fmt.Errorf("Received non 200 StatusCode in SendRequest().\nStatusCode: %d", res.StatusCode)
 	}
 	out, err := os.Create(filepath)
 	if err != nil {

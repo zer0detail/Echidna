@@ -4,10 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
-	"time"
 )
 
 func createEchidnaDirs() error {
@@ -44,14 +41,20 @@ func deleteCurrentDir() {
 	}
 }
 
-func setupCloseHandler() {
-	c := make(chan os.Signal)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		fmt.Println("Ctrl+C detected. Cleaning up current scan directory.")
-		time.Sleep(3 * time.Second)
-		deleteCurrentDir()
-		os.Exit(0)
-	}()
-}
+// func setupCloseHandler() context.Context {
+// 	ctx := context.Background()
+// 	ctx, cancel := context.WithCancel(ctx)
+// 	c := make(chan os.Signal)
+// 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+// 	go func() {
+// 		<-c
+// 		fmt.Println("Ctrl+C detected. Cancelling GoRoutines.")
+// 		cancel()
+// 		time.Sleep(3 * time.Second)
+// 		fmt.Println("Attempting to remove current/ directory")
+// 		deleteCurrentDir()
+// 		os.Exit(0)
+// 	}()
+
+// 	return ctx
+// }
