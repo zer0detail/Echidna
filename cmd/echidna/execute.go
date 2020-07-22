@@ -31,8 +31,8 @@ func Execute() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		fmt.Println("Ctrl+C detected. Cancelling scanning goroutines and current web requests.")
 		cancel()
+		fmt.Println("Ctrl+C detected. Cancelling scanning goroutines and current web requests.")
 		// Give the goroutines time to return and free up access to the zip files
 		// so when we delete them we have access
 		time.Sleep(2 * time.Second)
