@@ -87,7 +87,16 @@ func Download(ctx context.Context, filepath string, uri string) error {
 	req.Header.Set("User-Agent", "Echidna V1.0")
 	res, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("client.Do() in download() has failed with error\n %s", err)
+		if strings.Contains(string(err.Error()), "GOAWAY") {
+			fmt.Printf("Error in sendrequest() performing client.Do() with error\n%s\nAttempting to refresh client..\n", err)
+			client = newHTTPClient()
+			Download(ctx, filepath, uri)
+		} else if strings.Contains(err.Error(), "context canceled") {
+			// return nil for canceled requests
+			return nil
+		} else {
+			return fmt.Errorf("Error in SendRequest performing client.Do() with error\n%s", err)
+		}
 	}
 
 	if res.Body != nil {
