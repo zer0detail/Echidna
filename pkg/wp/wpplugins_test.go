@@ -1,15 +1,17 @@
 package wp
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"testing"
 )
 
 var errChan = make(chan error)
+var ctx, cancel = context.WithCancel(context.Background())
 
 func TestNewPlugins(t *testing.T) {
-	testPlugins, err := NewPlugins()
+	testPlugins, err := NewPlugins(ctx)
 	if err != nil {
 		t.Errorf("NewPlugins() call error with error:\n%s", err)
 	}
@@ -23,12 +25,12 @@ func TestNewPlugins(t *testing.T) {
 }
 
 func TestAddPlugins(t *testing.T) {
-	plugins, err := NewPlugins()
+	plugins, err := NewPlugins(ctx)
 	if err != nil {
 		t.Errorf("NewPlugins() call error with error:\n%s", err)
 	}
 	beforePlugins := len(plugins.Plugins)
-	plugins.AddPlugins(errChan)
+	plugins.AddPlugins(ctx, errChan)
 	afterPlugins := len(plugins.Plugins)
 
 	if afterPlugins <= beforePlugins {
@@ -37,11 +39,11 @@ func TestAddPlugins(t *testing.T) {
 }
 
 func TestRemovePlugin(t *testing.T) {
-	plugins, err := NewPlugins()
+	plugins, err := NewPlugins(ctx)
 	if err != nil {
 		t.Errorf("NewPlugins() call error with error:\n%s", err)
 	}
-	plugins.AddPlugins(errChan)
+	plugins.AddPlugins(ctx, errChan)
 	beforeRemove := len(plugins.Plugins)
 	plugins.RemovePlugin(1)
 	afterRemove := len(plugins.Plugins)
@@ -52,11 +54,11 @@ func TestRemovePlugin(t *testing.T) {
 }
 
 func TestPluginSetOutPath(t *testing.T) {
-	plugins, err := NewPlugins()
+	plugins, err := NewPlugins(ctx)
 	if err != nil {
 		t.Errorf("NewPlugins() call error with error:\n%s", err)
 	}
-	plugins.AddPlugins(errChan)
+	plugins.AddPlugins(ctx, errChan)
 	plugin := plugins.Plugins[1]
 	plugin.setOutPath()
 	if !(strings.Contains(plugin.OutPath, "current")) {

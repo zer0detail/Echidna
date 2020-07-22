@@ -2,6 +2,7 @@ package vulnerabilities
 
 import (
 	"archive/zip"
+	"context"
 	"io/ioutil"
 	"strings"
 
@@ -21,7 +22,7 @@ type Results struct {
 
 // ZipScan opens zip files, finds PHP files and hands them over to vulnerability
 // modules for bug hunting.
-func ZipScan(zipPath string, fileResults *Results) error {
+func ZipScan(ctx context.Context, zipPath string, fileResults *Results) error {
 
 	files, err := zip.OpenReader(zipPath)
 	if err != nil {
@@ -34,45 +35,51 @@ func ZipScan(zipPath string, fileResults *Results) error {
 	defer files.Close()
 
 	for _, file := range files.File {
-
-		if strings.HasSuffix(file.Name, ".php") {
-			r, err := file.Open()
-			if err != nil {
-				log.WithFields(log.Fields{
-					"file":  file.Name,
-					"error": err,
-				}).Warn("Could not open php file. Skipping..")
-				continue
-			}
-			defer r.Close()
-
-			var content []byte
-			content, err = ioutil.ReadAll(r)
-			if err != nil {
-				log.WithFields(log.Fields{
-					"file":  file.Name,
-					"error": err,
-				}).Warn("Could not read php file. Skipping..")
-				continue
-			}
-
-			for module, moduleFunc := range modules {
-				vulns, err := moduleFunc(content)
+		// Before we check each file, check if our context has been cancelled
+		// So we can close and free up the zip file for deletion by the cleanup function
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			if strings.HasSuffix(file.Name, ".php") {
+				r, err := file.Open()
 				if err != nil {
 					log.WithFields(log.Fields{
 						"file":  file.Name,
 						"error": err,
-					}).Warn("Error returned while scanning file for XSS. Skipping..")
+					}).Warn("Could not open php file. Skipping..")
+					continue
+				}
+				defer r.Close()
+
+				var content []byte
+				content, err = ioutil.ReadAll(r)
+				if err != nil {
+					log.WithFields(log.Fields{
+						"file":  file.Name,
+						"error": err,
+					}).Warn("Could not read php file. Skipping..")
 					continue
 				}
 
-				if vulns.Matches != nil {
-					vulns.File = file.Name
-					fileResults.Modules[module] = append(fileResults.Modules[module], vulns)
+				for module, moduleFunc := range modules {
+					vulns, err := moduleFunc(content)
+					if err != nil {
+						log.WithFields(log.Fields{
+							"file":  file.Name,
+							"error": err,
+						}).Warn("Error returned while scanning file for XSS. Skipping..")
+						continue
+					}
+
+					if vulns.Matches != nil {
+						vulns.File = file.Name
+						fileResults.Modules[module] = append(fileResults.Modules[module], vulns)
+					}
 				}
 			}
-
 		}
+
 	}
 
 	return nil

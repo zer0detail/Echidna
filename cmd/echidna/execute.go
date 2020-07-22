@@ -9,10 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gookit/color"
+	"github.com/Paraflare/Echidna/pkg/wp"
 )
 
 var ctx context.Context
+var pluginList *wp.Plugins
 
 // Execute is the entry point for echidna
 func Execute() {
@@ -30,26 +31,23 @@ func Execute() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		fmt.Println("Ctrl+C detected. Cancelling GoRoutines.")
+		fmt.Println("Ctrl+C detected. Cancelling scanning goroutines and current web requests.")
 		cancel()
-		time.Sleep(3 * time.Second)
+		// Give the goroutines time to return and free up access to the zip files
+		// so when we delete them we have access
+		time.Sleep(2 * time.Second)
 		fmt.Println("Attempting to remove current/ directory")
 		deleteCurrentDir()
 		os.Exit(0)
 	}()
 
 	greeting()
+
+	// PluginList exported allows the web server to retrieve its properties for display
+	pluginList, err = wp.NewPlugins(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	webStart()
-}
-
-func greeting() {
-	color.Yellow.Println(`
-	   _     _     _             
-          | |   (_)   | |            
-  ___  ___| |__  _  __| |_ __   __ _ 
- / _ \/ __| '_ \| |/ _' | '_ \ / _' |
-|  __/ (__| | | | | (_| | | | | (_| |
- \___|\___|_| |_|_|\__,_|_| |_|\__,_|`)
-
-	color.LightBlue.Println("Echidna Scanner running. Browse to http://127.0.0.1:8080 to view status.")
 }

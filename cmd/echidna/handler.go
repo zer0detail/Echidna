@@ -5,8 +5,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-
-	"github.com/Paraflare/Echidna/pkg/wp"
 )
 
 // Start is exported to allow /cmd/echidna/main.go execute() to start the web app side
@@ -21,12 +19,12 @@ func echidnaStatus(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = html.Execute(w, wp.PluginList)
+	err = html.Execute(w, pluginList)
 }
 
 func beginScanning(w http.ResponseWriter, r *http.Request) {
-	go wp.AllPluginScan(ctx)
+	go pluginList.BeginScanning(ctx)
 	fmt.Println("Scanner started..")
-	wp.PluginList.Started = true
+	pluginList.Started = true
 	http.Redirect(w, r, "/", http.StatusFound)
 }

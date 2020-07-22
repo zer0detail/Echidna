@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/gookit/color"
 )
 
 func createEchidnaDirs() error {
@@ -41,20 +43,14 @@ func deleteCurrentDir() {
 	}
 }
 
-// func setupCloseHandler() context.Context {
-// 	ctx := context.Background()
-// 	ctx, cancel := context.WithCancel(ctx)
-// 	c := make(chan os.Signal)
-// 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-// 	go func() {
-// 		<-c
-// 		fmt.Println("Ctrl+C detected. Cancelling GoRoutines.")
-// 		cancel()
-// 		time.Sleep(3 * time.Second)
-// 		fmt.Println("Attempting to remove current/ directory")
-// 		deleteCurrentDir()
-// 		os.Exit(0)
-// 	}()
+func greeting() {
+	color.Yellow.Println(`
+	   _     _     _             
+          | |   (_)   | |            
+  ___  ___| |__  _  __| |_ __   __ _ 
+ / _ \/ __| '_ \| |/ _' | '_ \ / _' |
+|  __/ (__| | | | | (_| | | | | (_| |
+ \___|\___|_| |_|_|\__,_|_| |_|\__,_|`)
 
-// 	return ctx
-// }
+	color.LightBlue.Println("Echidna Scanner running. Browse to http://127.0.0.1:8080 to view status.")
+}

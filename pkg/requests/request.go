@@ -1,6 +1,7 @@
 package requests
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,33 +17,28 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-var client HTTPClient
+var (
+	client HTTPClient
+)
 
 func init() {
-	client = createHTTPClient()
+	client = newHTTPClient()
 }
 
-// createHTTPClient for connection re-use
-func createHTTPClient() *http.Client {
-	// Customize the Transport to have larger connection pool
-	defaultRoundTripper := http.DefaultTransport
-	defaultTransportPointer, ok := defaultRoundTripper.(*http.Transport)
-	if !ok {
-		panic(fmt.Sprintf("defaultRoundTripper not an *http.Transport"))
+// newHTTPClient for connection re-use
+func newHTTPClient() HTTPClient {
+	return &http.Client{
+		Transport: &http.Transport{
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 100,
+		},
 	}
-	defaultTransport := *defaultTransportPointer // dereference it to get a copy of the struct that the pointer points to
-	defaultTransport.MaxIdleConns = 100
-	defaultTransport.MaxIdleConnsPerHost = 100
-
-	newClient := &http.Client{Transport: &defaultTransport}
-
-	return newClient
 }
 
 // SendRequest sends a get request to an arbitrary site and returns the body
-func SendRequest(uri string) ([]byte, error) {
+func SendRequest(ctx context.Context, uri string) ([]byte, error) {
 
-	req, err := http.NewRequest(http.MethodGet, uri, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -51,12 +47,14 @@ func SendRequest(uri string) ([]byte, error) {
 	if err != nil {
 		if strings.Contains(string(err.Error()), "GOAWAY") {
 			fmt.Printf("Error in sendrequest() performing client.Do() with error\n%s\nAttempting to refresh client..\n", err)
-			client = createHTTPClient()
-			SendRequest(uri)
+			client = newHTTPClient()
+			SendRequest(ctx, uri)
+		} else if strings.Contains(err.Error(), "context canceled") {
+			// return nil nil for canceled requests
+			return nil, nil
 		} else {
 			return nil, fmt.Errorf("Error in SendRequest performing client.Do() with error\n%s", err)
 		}
-
 	}
 
 	if res.Body != nil {
@@ -81,8 +79,8 @@ func SendRequest(uri string) ([]byte, error) {
 }
 
 // Download retrieves a remote file and stores it in the specified filepath
-func Download(filepath string, uri string) error {
-	req, err := http.NewRequest(http.MethodGet, uri, nil)
+func Download(ctx context.Context, filepath string, uri string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return fmt.Errorf("NewRequest in download() has failed with error\n %s", err)
 	}
@@ -118,8 +116,8 @@ func Download(filepath string, uri string) error {
 	if err != nil {
 		if strings.Contains(string(err.Error()), "GOAWAY") {
 			fmt.Printf("Error in download() with error\n%s\nAttempting to refresh client..\n", err)
-			client = createHTTPClient()
-			Download(filepath, uri)
+			client = newHTTPClient()
+			Download(ctx, filepath, uri)
 		}
 		return fmt.Errorf("Failed to write bytes to file for %s with error\n%s", filepath, err)
 	}
