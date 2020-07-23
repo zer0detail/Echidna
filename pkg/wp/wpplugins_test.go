@@ -30,7 +30,7 @@ func TestAddPlugins(t *testing.T) {
 		t.Errorf("NewPlugins() call error with error:\n%s", err)
 	}
 	beforePlugins := len(plugins.Plugins)
-	plugins.AddPlugins(ctx, errChan)
+	plugins.addPlugins(ctx, errChan)
 	afterPlugins := len(plugins.Plugins)
 
 	if afterPlugins <= beforePlugins {
@@ -43,7 +43,7 @@ func TestRemovePlugin(t *testing.T) {
 	if err != nil {
 		t.Errorf("NewPlugins() call error with error:\n%s", err)
 	}
-	plugins.AddPlugins(ctx, errChan)
+	plugins.addPlugins(ctx, errChan)
 	beforeRemove := len(plugins.Plugins)
 	plugins.RemovePlugin(1)
 	afterRemove := len(plugins.Plugins)
@@ -58,7 +58,7 @@ func TestPluginSetOutPath(t *testing.T) {
 	if err != nil {
 		t.Errorf("NewPlugins() call error with error:\n%s", err)
 	}
-	plugins.AddPlugins(ctx, errChan)
+	plugins.addPlugins(ctx, errChan)
 	plugin := plugins.Plugins[1]
 	plugin.setOutPath()
 	if !(strings.Contains(plugin.OutPath, "current")) {
