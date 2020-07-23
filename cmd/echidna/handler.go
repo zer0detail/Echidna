@@ -23,7 +23,7 @@ func echidnaStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func beginScanning(w http.ResponseWriter, r *http.Request) {
-	go Scanner.Target.Scan(ctx)
+	go Scanner.Target.Scan(ctx, errChan)
 	fmt.Println("Scanner started..")
 	Scanner.Started = true
 	http.Redirect(w, r, "/", http.StatusFound)

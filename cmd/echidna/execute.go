@@ -15,7 +15,7 @@ type scanner struct {
 }
 
 type target interface {
-	Scan(context.Context)
+	Scan(context.Context, chan error)
 }
 
 func newScanner(t target) *scanner {
@@ -28,7 +28,7 @@ func newScanner(t target) *scanner {
 // whatever target we want to scan. My attempt at DI.
 var (
 	Scanner *scanner
-	errChan := make(chan error)
+	errChan = make(chan error)
 )
 
 // Execute is the entry point for echidna
