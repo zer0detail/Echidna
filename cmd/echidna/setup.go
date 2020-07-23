@@ -1,13 +1,19 @@
 package echidna
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/gookit/color"
 )
+
+var ctx context.Context
 
 func createEchidnaDirs() error {
 	dir, err := os.Getwd()
@@ -53,4 +59,25 @@ func greeting() {
  \___|\___|_| |_|_|\__,_|_| |_|\__,_|`)
 
 	color.LightBlue.Println("Echidna Scanner running. Browse to http://127.0.0.1:8080 to view status.")
+}
+
+func setupCloseHandler() {
+	// set up context for cancelling goroutines
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	// set up goroutine to catch CTRL+C and execute cleanup
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		cancel()
+		fmt.Println("Ctrl+C detected. Cancelling scanning goroutines and current web requests.")
+		// Give the goroutines time to return and free up access to the zip files
+		// so when we delete them we have access
+		time.Sleep(2 * time.Second)
+		fmt.Println("Attempting to remove current/ directory")
+		deleteCurrentDir()
+		os.Exit(0)
+	}()
 }
