@@ -1,9 +1,0 @@
-handle flags (-web to start)
-confirm errors are all coming back properly
-confirm errors are being handled properly
-logging (?)
-more testing
-web server front end
-proper xss sqli filtering
-dockerfile
-Dependency injection(?)
