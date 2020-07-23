@@ -50,7 +50,7 @@ func deleteCurrentDir() {
 }
 
 func greeting() {
-	color.Yellow.Println(`
+	color.LightCyan.Println(`
 	   _     _     _             
           | |   (_)   | |            
   ___  ___| |__  _  __| |_ __   __ _ 
@@ -58,7 +58,7 @@ func greeting() {
 |  __/ (__| | | | | (_| | | | | (_| |
  \___|\___|_| |_|_|\__,_|_| |_|\__,_|`)
 
-	color.LightBlue.Println("Echidna Scanner running. Browse to http://127.0.0.1:8080 to view status.")
+	color.Yellow.Println("Echidna Scanner running. Browse to http://127.0.0.1:8080 to view status.")
 }
 
 func setupCloseHandler() {
