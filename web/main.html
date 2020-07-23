@@ -3,8 +3,8 @@
 
 {{if .Started}}
 <h2>Scanner running</h2>
-Pages of Plugin information retrieved: <b>{{.Info.Page}}/{{.Info.Pages}}</b><br>
-Plugins Scanned: <b>{{.FilesScanned}}/{{.Info.Results}}</b>
+Pages of Plugin information retrieved: <b>{{.Page}}/{{.Pages}}</b><br>
+Plugins Scanned: <b>{{.ScannedCount}}/{{.TotalFiles}}</b>
 
 {{else}}
 <h2>Scanner idle, click here to start.</h2>

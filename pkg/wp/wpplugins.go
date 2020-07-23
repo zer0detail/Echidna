@@ -25,18 +25,37 @@ var (
 	randomPicker = rand.New(seed)
 )
 
-// BeginScanning is the main word press plugin scanner function that controls
-// the execution flow of a full scan
-func (w *Plugins) BeginScanning(ctx context.Context) {
+// Plugins struct holds the WordPress Plugins information and satisfies
+// the scanner interface.
+type Plugins struct {
+	Info struct {
+		Page    int `json:"page"`
+		Pages   int `json:"pages"`
+		Results int `json:"results"`
+	} `json:"info"`
+	Plugins      []Plugin
+	URI          string
+	FilesScanned int
+}
 
-	errChan := make(chan error)
-	// PluginList, err :
-	// if err != nil {
-	// 	mainErrChan <- err
-	// }
+// NewPlugins is the constructor for creating a new *Plugins object with initial data
+func NewPlugins(ctx context.Context) (*Plugins, error) {
+	var plugins Plugins
 
-	// Initial Plugin Object setup. Add the reusable http client and the wp plugins URI properties
-	//color.Yellow.Printf("Found %d pages of plugins to scan..\n", PluginList.Info.Pages)
+	plugins.URI = pluginAPI
+	plugins.Info.Page = 1
+
+	err := plugins.AddInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &plugins, nil
+}
+
+// Scan is the main word press plugin scanner function that controls
+// the execution flow of a full scan. Satisfies the scanner interface.
+func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 
 	// Loop until we have scanned ALL plugins
 	for w.FilesScanned != w.Info.Results {
@@ -76,7 +95,7 @@ func (w *Plugins) BeginScanning(ctx context.Context) {
 				sem.Acquire(ctx, 1)
 				go func(ctx context.Context) {
 					w.Info.Page++
-					w.AddPlugins(ctx, errChan)
+					w.addPlugins(ctx, errChan)
 					sem.Release(1)
 				}(ctx)
 			}
@@ -85,37 +104,24 @@ func (w *Plugins) BeginScanning(ctx context.Context) {
 	fmt.Println("Finished scanning all plugins. Happy Hunting!")
 }
 
-// Plugins unmarshals the Word Press plugins API results
-type Plugins struct {
-	Info struct {
-		Page    int `json:"page"`
-		Pages   int `json:"pages"`
-		Results int `json:"results"`
-	} `json:"info"`
-	Plugins      []Plugin
-	URI          string
-	FilesScanned int
-	Started      bool
-}
+// Page returns the page property and satisfies the scanner interface.
+func (w *Plugins) Page() int { return w.Info.Page }
 
-// NewPlugins is the constructor for creating a new *Plugins object with initial data
-func NewPlugins(ctx context.Context) (*Plugins, error) {
-	var plugins Plugins
+// Pages returns the pages property and satisfies the scanner interface.
+func (w *Plugins) Pages() int { return w.Info.Pages }
 
-	plugins.URI = pluginAPI
-	plugins.Info.Page = 1
+// TotalFiles returns the Results property and satisfies the scanner interface
+func (w *Plugins) TotalFiles() int { return w.Info.Results }
 
-	err := plugins.AddInfo(ctx)
-	if err != nil {
-		return nil, err
-	}
+// ScannedCount returns the FileScanned property and satisfiies the scanner interface
+func (w *Plugins) ScannedCount() int { return w.FilesScanned }
 
-	return &plugins, nil
-}
+// addPlugins retrieves the next page of plugins from the WP store and adds them to the plugins object for scanning
+func (w *Plugins) addPlugins(ctx context.Context, errChan chan error) {
 
-// AddPlugins retrieves the next page of plugins from the WP store and adds them to the plugins object for scanning
-func (w *Plugins) AddPlugins(ctx context.Context, errChan chan error) {
-
+	// create a temporary Plugins object to get the next list of 250 plugins
+	// well then pull out the NextPluginList.Plugins slice and store it back into
+	// the main PluginList for the scanner
 	var nextPluginList Plugins
 
 	uri := w.URI + strconv.Itoa(w.Info.Page)
@@ -127,6 +133,7 @@ func (w *Plugins) AddPlugins(ctx context.Context, errChan chan error) {
 	}
 	err = json.Unmarshal(rawPluginList, &nextPluginList)
 	if err != nil {
+
 		errChan <- err
 		return
 	}
@@ -138,17 +145,22 @@ func (w *Plugins) AddPlugins(ctx context.Context, errChan chan error) {
 // AddInfo retrieve the number of pages in the WP plugin store and the number of plugins to scan
 func (w *Plugins) AddInfo(ctx context.Context) error {
 
+	// Create a temporary Plugins value to store the results of the web request in.
+	// we'll then pull out the .Info properties to append to our actual
+	// main plugin list that the scanner is using.
 	var info Plugins
 
 	uri := w.URI + strconv.Itoa(w.Info.Page)
 
 	body, err := requests.SendRequest(ctx, uri)
 	if err != nil {
-		return err
+		// Die if we can't get WordPress Plugin info. There's no way to continue without it
+		return fmt.Errorf("Error in Plugins:SendRequest() with error\n%s", err.Error())
 	}
 	err = json.Unmarshal(body, &info)
 	if err != nil {
-		return err
+		// Die if we can't get WordPress Plugin info. There's no way to continue without it
+		return fmt.Errorf("Error in Plugins:AddInfo() while attempting to unmarshal json from the body with error:\n%s", err.Error())
 	}
 	w.Info = info.Info
 

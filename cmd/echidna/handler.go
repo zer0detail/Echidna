@@ -19,12 +19,12 @@ func echidnaStatus(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = html.Execute(w, pluginList)
+	err = html.Execute(w, Scanner)
 }
 
 func beginScanning(w http.ResponseWriter, r *http.Request) {
-	go pluginList.BeginScanning(ctx)
+	go Scanner.Target.Scan(ctx)
 	fmt.Println("Scanner started..")
-	pluginList.Started = true
+	Scanner.Started = true
 	http.Redirect(w, r, "/", http.StatusFound)
 }
