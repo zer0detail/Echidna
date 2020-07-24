@@ -65,7 +65,6 @@ func setupCloseHandler() {
 	// set up context for cancelling goroutines
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithCancel(context.Background())
-	defer cancel()
 	// set up goroutine to catch CTRL+C and execute cleanup
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
