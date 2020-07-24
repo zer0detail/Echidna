@@ -21,3 +21,4 @@ A spiky Australian bug hunter
 - [ ] add more logging where needed
 - [ ] add more vulnerability modules
 - [ ] ability to select specific vuln modules to run
+- [x] Travis CI integration
