@@ -1,6 +1,10 @@
 # Echidna
 A spiky Australian bug hunter
 
+## Badges
+
+[![Build Status](https://travis-ci.com/Zaptitude/Echidna.svg?token=NoU3HERSYrpoemd6GHGs&branch=master)](https://travis-ci.com/Zaptitude/Echidna)
+
 
 ### Progress to v1.0
 
