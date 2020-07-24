@@ -36,17 +36,19 @@ func createEchidnaDirs() error {
 
 }
 
-func deleteCurrentDir() {
+func deleteCurrentDir() error {
 	dir, err := os.Getwd()
 	if err != nil {
-		log.Fatal("Could not get current working directory in deleteCurrentDir(). Please manually remove the folder")
+		return fmt.Errorf("Could not get current working directory in deleteCurrentDir(). Please manually remove the folder")
 	}
 
 	current := filepath.Join(dir, "current")
 	err = os.RemoveAll(current)
 	if err != nil {
-		log.Fatal("Failed to remove Current/ directory and some subfiles. Please remove them manually")
+		return fmt.Errorf("Failed to remove Current/ directory and some subfiles. Please remove them manually")
 	}
+
+	return nil
 }
 
 func greeting() {
@@ -76,7 +78,10 @@ func setupCloseHandler() {
 		// so when we delete them we have access
 		time.Sleep(2 * time.Second)
 		fmt.Println("Attempting to remove current/ directory")
-		deleteCurrentDir()
+		err := deleteCurrentDir()
+		if err != nil {
+			log.Fatal(err)
+		}
 		os.Exit(0)
 	}()
 }
