@@ -8,7 +8,7 @@ import (
 )
 
 var errChan = make(chan error)
-var ctx, cancel = context.WithCancel(context.Background())
+var ctx, _ = context.WithCancel(context.Background())
 
 func TestNewPlugins(t *testing.T) {
 	testPlugins, err := NewPlugins(ctx)
@@ -60,7 +60,10 @@ func TestPluginSetOutPath(t *testing.T) {
 	}
 	plugins.addPlugins(ctx, errChan)
 	plugin := plugins.Plugins[1]
-	plugin.setOutPath()
+	err = plugin.setOutPath()
+	if err != nil {
+		t.Errorf("plugin.SetOutPath() failed with unexpected error:\n%s", err)
+	}
 	if !(strings.Contains(plugin.OutPath, "current")) {
 		t.Errorf("plugin.SetOutPath() did not set a path to the current/ folder.\nGot: %s", plugin.OutPath)
 	}

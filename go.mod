@@ -3,6 +3,7 @@ module github.com/Paraflare/Echidna
 go 1.14
 
 require (
+	github.com/golangci/golangci-lint v1.27.0 // indirect
 	github.com/gookit/color v1.2.6
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/loov/goda v0.1.3 // indirect

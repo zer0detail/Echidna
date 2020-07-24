@@ -71,7 +71,10 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 		default:
 			// if we have plugins, scan them
 			if len(w.Plugins) > 0 {
-				sem.Acquire(ctx, 1)
+				err := sem.Acquire(ctx, 1)
+				if err != nil {
+					errChan <- fmt.Errorf("sem.Acquire(ctx, 1) failed with error\n%s", err)
+				}
 				// Choose a random plugin
 				randPluginIndex := randomPicker.Intn(len(w.Plugins))
 				plugin := w.Plugins[randPluginIndex]
@@ -92,7 +95,10 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 			// If we haven't finished pulling the list of plugins from the store, grab another page and
 			// add it to PluginList.Plugins
 			if w.Info.Page <= w.Info.Pages {
-				sem.Acquire(ctx, 1)
+				err := sem.Acquire(ctx, 1)
+				if err != nil {
+					errChan <- fmt.Errorf("sem.Acquire(ctx, 1) failed with error\n%s", err)
+				}
 				go func(ctx context.Context) {
 					w.Info.Page++
 					w.addPlugins(ctx, errChan)
@@ -234,7 +240,7 @@ func (p *Plugin) setDaysSinceUpdate() error {
 		return fmt.Errorf("Failed to parse time in setDaysSinceUpdate() with error\n%s", err)
 	}
 
-	p.DaysSinceLastUpdate = strconv.Itoa(int(time.Now().Sub(lastUpdateTime).Hours() / 24))
+	p.DaysSinceLastUpdate = strconv.Itoa(int(time.Since(lastUpdateTime).Hours() / 24))
 
 	return nil
 }

@@ -11,7 +11,10 @@ import (
 func webStart() {
 	http.HandleFunc("/", echidnaStatus)
 	http.HandleFunc("/begin", beginScanning)
-	http.ListenAndServe("localhost:8080", nil)
+	err := http.ListenAndServe("localhost:8080", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func echidnaStatus(w http.ResponseWriter, r *http.Request) {
@@ -20,6 +23,9 @@ func echidnaStatus(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 	err = html.Execute(w, Scanner)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func beginScanning(w http.ResponseWriter, r *http.Request) {

@@ -31,18 +31,15 @@ func SQLI(content []byte) (VulnResults, error) {
 			return vulnResults, fmt.Errorf("error compiling signature %s in SQLI() with error\n%s", signature, err)
 		}
 		matches := re.FindAllString(string(content), -1)
-		if matches != nil {
-			for _, match := range matches {
-				filteredMatches := reFilter.FindAllString(match, 1)
-				if len(filteredMatches) != 0 {
-					continue
-				} else {
-					match := html.UnescapeString(match)
-					color.Magenta.Println(match)
-					vulnResults.Matches = append(vulnResults.Matches, match)
-				}
+		for _, match := range matches {
+			filteredMatches := reFilter.FindAllString(match, 1)
+			if len(filteredMatches) != 0 {
+				continue
+			} else {
+				match := html.UnescapeString(match)
+				color.Magenta.Println(match)
+				vulnResults.Matches = append(vulnResults.Matches, match)
 			}
-
 		}
 	}
 

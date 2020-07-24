@@ -5,14 +5,17 @@ package requests
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
 )
+
+// throwing away cancelfunc for now. add again when testing context cancelling
+var ctx, _ = context.WithCancel(context.Background())
 
 // Mock the http.client's Do() func so we can do testing without making  requests
 type mockClient struct {
@@ -24,9 +27,9 @@ func (m *mockClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 var (
-	dir, _   = os.Getwd()
-	sep      = string(os.PathSeparator)
-	outpath  = dir + sep + ".." + sep + ".." + sep + ".test" + sep + "test.zip"
+	//dir, _ = os.Getwd()
+	//sep    = string(os.PathSeparator)
+	//outpath  = dir + sep + ".." + sep + ".." + sep + ".test" + sep + "test.zip"
 	dummyURI = "http://127.0.0.1:8080"
 	DoFunc   func(req *http.Request) (*http.Response, error)
 )
@@ -45,7 +48,7 @@ func init() {
 
 func TestCreateHTTPClient(t *testing.T) {
 
-	testClient := createHTTPClient()
+	testClient := newHTTPClient()
 	retType := reflect.TypeOf(testClient)
 	if retType.String() != "*http.Client" {
 		t.Errorf("CreateHTTPCLient() returned %s instead of *http.Client\n", retType)
@@ -53,6 +56,7 @@ func TestCreateHTTPClient(t *testing.T) {
 }
 
 func TestSendRequestSuccess(t *testing.T) {
+
 	b := ioutil.NopCloser(bytes.NewReader([]byte("Success")))
 	DoFunc = func(*http.Request) (*http.Response, error) {
 		return &http.Response{
@@ -61,7 +65,7 @@ func TestSendRequestSuccess(t *testing.T) {
 		}, nil
 	}
 
-	body, err := SendRequest(dummyURI)
+	body, err := SendRequest(ctx, dummyURI)
 	if err != nil {
 		t.Errorf("Mocked SendRequest(%s) failed with error\n%s", dummyURI, err)
 	}
@@ -81,7 +85,7 @@ func TestSendRequestPageNotFound(t *testing.T) {
 	}
 	// Make sure SendRequest returns a protocol error when sending this malformed URI
 	//expectedErr := fmt.Sprintf("Received non 200 StatusCode in SendRequest().\nStatusCode: %d", 404)
-	_, err := SendRequest(dummyURI)
+	_, err := SendRequest(ctx, dummyURI)
 	if !(strings.Contains(err.Error(), "non 200 StatusCode")) {
 		t.Errorf("Mocked SendRequest(%s) StatusCode check with error\n%s\nExpected: %s\n", dummyURI, err, "test") //expectedErr)
 	}
@@ -99,7 +103,7 @@ func TestSendRequestDoError(t *testing.T) {
 	}
 	// Make sure SendRequest returns a protocol error when sending this malformed URI
 
-	_, err := SendRequest(dummyURI)
+	_, err := SendRequest(ctx, dummyURI)
 	if !(strings.Contains(err.Error(), "Page Not Found")) {
 		t.Errorf("Mocked SendRequest(%s) failed with error\n%s\nExpected: %s\n", dummyURI, err, dummyErr)
 	}
@@ -111,14 +115,14 @@ func TestSendRequestGoAway(t *testing.T) {
 	dummyErr := "GOAWAY"
 	DoFunc = func(*http.Request) (*http.Response, error) {
 		return &http.Response{
-			StatusCode: 201,
+			StatusCode: 200,
 			Body:       b,
 		}, errors.New(dummyErr)
 	}
 	// Make sure SendRequest returns a protocol error when sending this malformed URI
 
-	_, err := SendRequest(dummyURI)
-	if !(strings.Contains(err.Error(), "Page Not Found")) {
+	_, err := SendRequest(ctx, dummyURI)
+	if !(strings.Contains(err.Error(), "GOAWAY")) {
 		t.Errorf("Mocked SendRequest(%s) failed with error\n%s\nExpected: %s\n", dummyURI, err, dummyErr)
 	}
 }

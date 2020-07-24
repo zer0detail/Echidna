@@ -46,9 +46,8 @@ func SendRequest(ctx context.Context, uri string) ([]byte, error) {
 	res, err := client.Do(req)
 	if err != nil {
 		if strings.Contains(string(err.Error()), "GOAWAY") {
-			fmt.Printf("Error in sendrequest() performing client.Do() with error\n%s\nAttempting to refresh client..\n", err)
 			client = newHTTPClient()
-			SendRequest(ctx, uri)
+			return nil, fmt.Errorf("Error in sendrequest() performing client.Do() with error\n%s\nAttempting to refresh client", err)
 		} else if strings.Contains(err.Error(), "context canceled") {
 			// return nil nil for canceled requests
 			return nil, nil
@@ -62,10 +61,6 @@ func SendRequest(ctx context.Context, uri string) ([]byte, error) {
 	}
 
 	if res.StatusCode != 200 {
-		log.WithFields(log.Fields{
-			"status": res.StatusCode,
-			"URI":    uri,
-		}).Warn("Server did not reply with 200 OK.")
 		return nil, fmt.Errorf("Received non 200 StatusCode in SendRequest().\nStatusCode: %d", res.StatusCode)
 	}
 
@@ -90,7 +85,7 @@ func Download(ctx context.Context, filepath string, uri string) error {
 		if strings.Contains(string(err.Error()), "GOAWAY") {
 			fmt.Printf("Error in sendrequest() performing client.Do() with error\n%s\nAttempting to refresh client..\n", err)
 			client = newHTTPClient()
-			Download(ctx, filepath, uri)
+			return fmt.Errorf("Error in sendrequest() performing client.Do() with error\n%s\nAttempting to refresh client", err)
 		} else if strings.Contains(err.Error(), "context canceled") {
 			// return nil for canceled requests
 			return nil
@@ -123,11 +118,6 @@ func Download(ctx context.Context, filepath string, uri string) error {
 
 	_, err = io.Copy(out, res.Body)
 	if err != nil {
-		if strings.Contains(string(err.Error()), "GOAWAY") {
-			fmt.Printf("Error in download() with error\n%s\nAttempting to refresh client..\n", err)
-			client = newHTTPClient()
-			Download(ctx, filepath, uri)
-		}
 		return fmt.Errorf("Failed to write bytes to file for %s with error\n%s", filepath, err)
 	}
 	return nil
