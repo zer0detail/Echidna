@@ -18,7 +18,7 @@ func XSS(content []byte) (VulnResults, error) {
 		`print +.*\$(_GET|_POST|_COOKIE).*`,
 	}
 
-	filter := "esc_|sanitize|isset|int|htmlentities|htmlspecial|intval|wp_strip"
+	filter := "stripslashes|esc_|sanitize|isset|int|htmlentities|htmlspecial|intval|wp_strip"
 	reFilter, err := regexp.Compile(filter)
 	if err != nil {
 		return vulnResults, fmt.Errorf("error compiling XSS filter in XSS() with error\n%s", err)

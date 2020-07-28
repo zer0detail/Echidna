@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"os"
 	"strconv"
@@ -65,7 +66,7 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 		// the errors channel. This is so we can constantly check for failed goroutines.
 		// without hanging on a blocking channel read.
 		case err := <-errChan:
-			fmt.Printf("Error channel received error: \n%s\n", err)
+			log.Fatalf("Error channel received error: \n%s\n", err)
 		case <-ctx.Done():
 			return
 		default:

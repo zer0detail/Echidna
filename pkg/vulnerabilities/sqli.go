@@ -19,7 +19,7 @@ func SQLI(content []byte) (VulnResults, error) {
 		`\$wpdb->.*\$_POST.*`,
 	}
 
-	filter := "escape|prepare|esc_|sanitize|isset|int|htmlentities|htmlspecial|intval|wp_strip"
+	filter := "stripslashes|escape|prepare|esc_|sanitize|isset|int|htmlentities|htmlspecial|intval|wp_strip"
 	reFilter, err := regexp.Compile(filter)
 	if err != nil {
 		return vulnResults, fmt.Errorf("error compiling SQLi filter in SQLI() with error\n%s", err)
