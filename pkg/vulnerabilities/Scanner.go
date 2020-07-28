@@ -11,6 +11,7 @@ import (
 var modules = map[string]func([]byte) (VulnResults, error){
 	"XSS":  XSS,
 	"SQLI": SQLI,
+	"CMDEXEC": CMDEXEC,
 }
 
 // Results is a struct for storing the results of every vulnerable file that was scanned within a plugins archive

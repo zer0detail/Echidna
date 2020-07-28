@@ -6,8 +6,8 @@ import (
 	"regexp"
 )
 
-// CmdExec is the function that searches PHP code for common RCE vulnerabilities patterns
-func CmdExec(content []byte) (VulnResults, error) {
+// CMDEXEC is the function that searches PHP code for common RCE vulnerabilities patterns
+func CMDEXEC(content []byte) (VulnResults, error) {
 	var vulnResults VulnResults
 
 	signatures := []string{

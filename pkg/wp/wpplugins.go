@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -35,6 +36,8 @@ type Plugins struct {
 	Plugins      []Plugin
 	URI          string
 	FilesScanned int
+	VulnsFound   int
+	Vulns        []struct{}
 }
 
 // NewPlugins is the constructor for creating a new *Plugins object with initial data
@@ -271,7 +274,7 @@ func (p *Plugin) VulnScan(ctx context.Context, filesScanned *int, errChan chan e
 	}
 
 	if len(scanResults.Modules) > 0 {
-		err := p.moveToInspect()
+		err := p.moveToInspect(&scanResults)
 		if err != nil {
 			errChan <- err
 		}
@@ -291,30 +294,58 @@ func (p *Plugin) VulnScan(ctx context.Context, filesScanned *int, errChan chan e
 	}
 }
 
-func (p *Plugin) moveToInspect() error {
+func (p *Plugin) moveToInspect(results *vulnerabilities.Results) error {
 	dir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("wpplugins.go:moveToInspect() - Could not get current working directory with os.Getwd() with error\n%s", err)
 	}
+	// Split results out into the results for each vulnerability module (e.g xss, sqli, etc)
+	for k := range results.Modules {
+		p.inspectPath = dir + string(os.PathSeparator) + "inspect" + string(os.PathSeparator) + k
+		// if a folder for that vuln module doesnt already exist, create it.
+		if _, err := os.Stat(p.inspectPath); os.IsNotExist(err) {
+			err = os.MkdirAll(p.inspectPath, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("wpplugins.go:moveToInspect() - Failed to create directory %s with error\n%s", p.inspectPath, err)
+			}
+		}
 
-	p.inspectPath = dir + string(os.PathSeparator) + "inspect" + string(os.PathSeparator) + p.FileName
-	err = os.Rename(p.OutPath, p.inspectPath)
-	if err != nil {
-		return fmt.Errorf("wpplugins.go:moveToInspect() - Could not move %s to inspect folder with error\n%s", p.Name, err)
+		outfile := p.inspectPath + string(os.PathSeparator) + p.FileName
+
+		src, err := os.Open(p.OutPath)
+		if err != nil {
+			return fmt.Errorf("wpplugins.go:moveToInspect() - failed to os.Open(%s) with error\n%s", p.OutPath, err)
+		}
+		defer src.Close()
+		dst, err := os.Create(outfile)
+		if err != nil {
+			return fmt.Errorf("wpplugins.go:moveToInspect() - failed to os.Create(%s) with error \n%s", p.inspectPath, err)
+		}
+		defer dst.Close()
+
+		_, err = io.Copy(src, dst)
+		if err != nil {
+			return fmt.Errorf("wpplugins.go:moveToInspect() - Could not move %s to inspect folder with error\n%s", p.Name, err)
+		}
 	}
-
 	return nil
 }
 
 func (p *Plugin) saveResults(results *vulnerabilities.Results) error {
-	file, err := json.MarshalIndent(results, "", " ")
+	dir, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("wpplugins.go:saveResults() - Could not MarshalIndent() results for file %s with error\n%s", p.Name, err)
+		return fmt.Errorf("wpplugins.go:saveResults() - Could not get current working directory with os.Getwd() with error\n%s", err)
 	}
-
-	err = ioutil.WriteFile(p.inspectPath+".txt", file, 0644)
-	if err != nil {
-		return fmt.Errorf("wpplugins.go:saveResults() - Could not save results file for %s with error \n%s", p.Name, err)
+	for k := range results.Modules {
+		file, err := json.MarshalIndent(results.Modules[k], "", " ")
+		if err != nil {
+			return fmt.Errorf("wpplugins.go:saveResults() - Could not MarshalIndent() results for file %s with error\n%s", p.Name, err)
+		}
+		p.inspectPath = dir + string(os.PathSeparator) + "inspect" + string(os.PathSeparator) + k + string(os.PathSeparator) + p.FileName
+		err = ioutil.WriteFile(p.inspectPath+".txt", file, 0644)
+		if err != nil {
+			return fmt.Errorf("wpplugins.go:saveResults() - Could not save results file for %s with error \n%s", p.Name, err)
+		}
 	}
 
 	return nil
