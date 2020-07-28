@@ -85,3 +85,10 @@ func setupCloseHandler() {
 		os.Exit(0)
 	}()
 }
+
+func errorHandler(ctx context.Context, errChan chan error) {
+	for {
+		err := <-errChan
+		fmt.Printf("ECHIDNA ERROR: %s\n", err.Error())
+	}
+}

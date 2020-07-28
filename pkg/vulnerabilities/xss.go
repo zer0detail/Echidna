@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"html"
 	"regexp"
-
-	"github.com/gookit/color"
 )
 
 // XSS is the XSS module that will scan a php file for XSS vulns
@@ -36,7 +34,6 @@ func XSS(content []byte) (VulnResults, error) {
 				continue
 			} else {
 				match := html.UnescapeString(match)
-				color.Magenta.Println(match)
 				vulnResults.Matches = append(vulnResults.Matches, match)
 			}
 		}

@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // HTTPClient interface so we can mock http clients in testing
@@ -82,10 +80,10 @@ func Download(ctx context.Context, filepath string, uri string) error {
 	req.Header.Set("User-Agent", "Echidna V1.0")
 	res, err := client.Do(req)
 	if err != nil {
-		if strings.Contains(string(err.Error()), "GOAWAY") {
-			fmt.Printf("Error in sendrequest() performing client.Do() with error\n%s\nAttempting to refresh client..\n", err)
+		if strings.Contains(err.Error(), "GOAWAY") {
+			fmt.Println("Received GOAWAY, refreshing client")
 			client = newHTTPClient()
-			return fmt.Errorf("Error in sendrequest() performing client.Do() with error\n%s\nAttempting to refresh client", err)
+			return nil
 		} else if strings.Contains(err.Error(), "context canceled") {
 			// return nil for canceled requests
 			return nil
@@ -97,17 +95,18 @@ func Download(ctx context.Context, filepath string, uri string) error {
 	if res.Body != nil {
 		defer res.Body.Close()
 	} else {
-		log.WithFields(log.Fields{
-			"status": res.StatusCode,
-			"URI":    uri,
-		}).Warn("response body is nil")
+		// log.WithFields(log.Fields{
+		// 	"status": res.StatusCode,
+		// 	"URI":    uri,
+		// }).Warn("request.go:Download() response body is nil, Skipping download")
+		return fmt.Errorf("request.go:Download() response body is nil")
 	}
 
 	if res.StatusCode != 200 {
-		log.WithFields(log.Fields{
-			"status": res.StatusCode,
-			"URI":    uri,
-		}).Warn("WordPress Plugin server did not reply with 200 OK.")
+		// log.WithFields(log.Fields{
+		// 	"status": res.StatusCode,
+		// 	"URI":    uri,
+		// }).Warn("request.go:Download() Did not receive 200 OK, Skipping download.")
 		return fmt.Errorf("Received non 200 StatusCode in SendRequest().\nStatusCode: %d", res.StatusCode)
 	}
 	out, err := os.Create(filepath)

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"os"
 	"strconv"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/Paraflare/Echidna/pkg/requests"
 	"github.com/Paraflare/Echidna/pkg/vulnerabilities"
-	"github.com/gookit/color"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -65,8 +63,6 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 		// every  time we get back to the top of the loop do a non-blocking check of
 		// the errors channel. This is so we can constantly check for failed goroutines.
 		// without hanging on a blocking channel read.
-		case err := <-errChan:
-			log.Fatalf("Error channel received error: \n%s\n", err)
 		case <-ctx.Done():
 			return
 		default:
@@ -74,7 +70,7 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 			if len(w.Plugins) > 0 {
 				err := sem.Acquire(ctx, 1)
 				if err != nil {
-					errChan <- fmt.Errorf("sem.Acquire(ctx, 1) failed with error\n%s", err)
+					errChan <- fmt.Errorf("wpplugins.go:Scan() - sem.Acquire(ctx, 1) failed with error\n%s", err)
 				}
 				// Choose a random plugin
 				randPluginIndex := randomPicker.Intn(len(w.Plugins))
@@ -82,15 +78,15 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 				// Remove it from the list
 				w.RemovePlugin(randPluginIndex)
 
-				go func(ctx context.Context) {
+				go func(ctx context.Context, errChan chan error) {
 					plugin.VulnScan(ctx, &w.FilesScanned, errChan)
 					sem.Release(1)
-				}(ctx)
+				}(ctx, errChan)
 
-				color.Yellow.Print("Plugin count: ")
-				color.Gray.Printf("%d\t", len(w.Plugins))
-				color.Yellow.Print("Files Scanned: ")
-				color.Gray.Printf("%d\n", w.FilesScanned)
+				// color.Yellow.Print("Plugin count: ")
+				// color.Gray.Printf("%d\t", len(w.Plugins))
+				// color.Yellow.Print("Files Scanned: ")
+				// color.Gray.Printf("%d\n", w.FilesScanned)
 			}
 
 			// If we haven't finished pulling the list of plugins from the store, grab another page and
@@ -98,13 +94,13 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 			if w.Info.Page <= w.Info.Pages {
 				err := sem.Acquire(ctx, 1)
 				if err != nil {
-					errChan <- fmt.Errorf("sem.Acquire(ctx, 1) failed with error\n%s", err)
+					errChan <- fmt.Errorf("wpplugins.go:Scan() - sem.Acquire(ctx, 1) failed with error\n%s", err)
 				}
-				go func(ctx context.Context) {
+				go func(ctx context.Context, errChan chan error) {
 					w.Info.Page++
 					w.addPlugins(ctx, errChan)
 					sem.Release(1)
-				}(ctx)
+				}(ctx, errChan)
 			}
 		}
 	}
@@ -162,12 +158,12 @@ func (w *Plugins) AddInfo(ctx context.Context) error {
 	body, err := requests.SendRequest(ctx, uri)
 	if err != nil {
 		// Die if we can't get WordPress Plugin info. There's no way to continue without it
-		return fmt.Errorf("Error in Plugins:SendRequest() with error\n%s", err.Error())
+		return fmt.Errorf("wpplugins.go:AddInfo() - call to requests.SendRequest(ctx, %s)\n%s", uri, err.Error())
 	}
 	err = json.Unmarshal(body, &info)
 	if err != nil {
 		// Die if we can't get WordPress Plugin info. There's no way to continue without it
-		return fmt.Errorf("Error in Plugins:AddInfo() while attempting to unmarshal json from the body with error:\n%s", err.Error())
+		return fmt.Errorf("wpplugins.go:AddInfo() - while attempting to unmarshal json from the body with error:\n%s", err.Error())
 	}
 	w.Info = info.Info
 
@@ -224,7 +220,7 @@ func (p *Plugin) setOutPath() error {
 
 	dir, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("Could not get current working directory in setOutPath() with error\n%s", err)
+		return fmt.Errorf("wpplugins.go:setOutPath() - os.Getwd() with error\n%s", err)
 	}
 
 	p.OutPath = dir + string(os.PathSeparator) + "current" + string(os.PathSeparator) + fileName
@@ -238,7 +234,7 @@ func (p *Plugin) setDaysSinceUpdate() error {
 
 	lastUpdateTime, err := time.Parse(timeLayout, p.LastUpdated)
 	if err != nil {
-		return fmt.Errorf("Failed to parse time in setDaysSinceUpdate() with error\n%s", err)
+		return fmt.Errorf("wpplugins.go:setDaysSinceUpdate() time.Parse(%s, %s) failed with error\n%s", timeLayout, p.LastUpdated, err)
 	}
 
 	p.DaysSinceLastUpdate = strconv.Itoa(int(time.Since(lastUpdateTime).Hours() / 24))
@@ -283,8 +279,8 @@ func (p *Plugin) VulnScan(ctx context.Context, filesScanned *int, errChan chan e
 		if err != nil {
 			errChan <- err
 		}
-		color.Green.Printf("Potential Vulnerabilities found in plugin: %s\n", p.Name)
-		color.Green.Println("Moving plugin to inspect/ folder.")
+		// color.Green.Printf("Potential Vulnerabilities found in plugin: %s\n", p.Name)
+		// color.Green.Println("Moving plugin to inspect/ folder.")
 		return
 
 	}
@@ -298,13 +294,13 @@ func (p *Plugin) VulnScan(ctx context.Context, filesScanned *int, errChan chan e
 func (p *Plugin) moveToInspect() error {
 	dir, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("Could not get current working directory in setOutPath() with error\n%s", err)
+		return fmt.Errorf("wpplugins.go:moveToInspect() - Could not get current working directory with os.Getwd() with error\n%s", err)
 	}
 
 	p.inspectPath = dir + string(os.PathSeparator) + "inspect" + string(os.PathSeparator) + p.FileName
 	err = os.Rename(p.OutPath, p.inspectPath)
 	if err != nil {
-		return fmt.Errorf("Could not move %s to inspect folder with error\n%s", p.Name, err)
+		return fmt.Errorf("wpplugins.go:moveToInspect() - Could not move %s to inspect folder with error\n%s", p.Name, err)
 	}
 
 	return nil
@@ -313,12 +309,12 @@ func (p *Plugin) moveToInspect() error {
 func (p *Plugin) saveResults(results *vulnerabilities.Results) error {
 	file, err := json.MarshalIndent(results, "", " ")
 	if err != nil {
-		return fmt.Errorf("Could not MarshalIndent() results for file %s with error\n%s", p.Name, err)
+		return fmt.Errorf("wpplugins.go:saveResults() - Could not MarshalIndent() results for file %s with error\n%s", p.Name, err)
 	}
 
 	err = ioutil.WriteFile(p.inspectPath+".txt", file, 0644)
 	if err != nil {
-		return fmt.Errorf("Could not save results file for %s with error \n%s", p.Name, err)
+		return fmt.Errorf("wpplugins.go:saveResults() - Could not save results file for %s with error \n%s", p.Name, err)
 	}
 
 	return nil

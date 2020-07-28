@@ -22,3 +22,4 @@ A spiky Australian bug hunter
 - [ ] add more vulnerability modules
 - [ ] ability to select specific vuln modules to run
 - [x] Travis CI integration
+- [ ] Handle GOAWAY

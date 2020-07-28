@@ -41,6 +41,7 @@ func Execute() {
 
 	greeting()
 	setupCloseHandler()
+	go errorHandler(ctx, errChan)
 
 	_, err = flags.Parse(&opts)
 	if err != nil {

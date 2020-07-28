@@ -3,10 +3,9 @@ package vulnerabilities
 import (
 	"archive/zip"
 	"context"
+	"fmt"
 	"io/ioutil"
 	"strings"
-
-	log "github.com/sirupsen/logrus"
 )
 
 var modules = map[string]func([]byte) (VulnResults, error){
@@ -30,11 +29,11 @@ func ZipScan(ctx context.Context, zipPath string, fileResults *Results) error {
 	default:
 		files, err := zip.OpenReader(zipPath)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"file":  zipPath,
-				"error": err,
-			}).Error("Could not open Zip file. Skipping..")
-			return err
+			// log.WithFields(log.Fields{
+			// 	"file":  zipPath,
+			// 	"error": err,
+			// }).Error("Could not open Zip file. Skipping..")
+			return fmt.Errorf("scanner.go:ZipScan() - failed to open zip file with zip.OpenReader(%v)", err)
 		}
 		defer files.Close()
 
@@ -48,10 +47,10 @@ func ZipScan(ctx context.Context, zipPath string, fileResults *Results) error {
 				if strings.HasSuffix(file.Name, ".php") {
 					r, err := file.Open()
 					if err != nil {
-						log.WithFields(log.Fields{
-							"file":  file.Name,
-							"error": err,
-						}).Warn("Could not open php file. Skipping..")
+						// log.WithFields(log.Fields{
+						// 	"file":  file.Name,
+						// 	"error": err,
+						// }).Warn("Could not open php file. Skipping..")
 						continue
 					}
 					defer r.Close()
@@ -59,20 +58,20 @@ func ZipScan(ctx context.Context, zipPath string, fileResults *Results) error {
 					var content []byte
 					content, err = ioutil.ReadAll(r)
 					if err != nil {
-						log.WithFields(log.Fields{
-							"file":  file.Name,
-							"error": err,
-						}).Warn("Could not read php file. Skipping..")
+						// log.WithFields(log.Fields{
+						// 	"file":  file.Name,
+						// 	"error": err,
+						// }).Warn("Could not read php file. Skipping..")
 						continue
 					}
 
 					for module, moduleFunc := range modules {
 						vulns, err := moduleFunc(content)
 						if err != nil {
-							log.WithFields(log.Fields{
-								"file":  file.Name,
-								"error": err,
-							}).Warn("Error returned while scanning file for XSS. Skipping..")
+							// log.WithFields(log.Fields{
+							// 	"file":  file.Name,
+							// 	"error": err,
+							// }).Warn("Error returned while scanning file for XSS. Skipping..")
 							continue
 						}
 

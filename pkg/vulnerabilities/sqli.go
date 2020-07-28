@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"html"
 	"regexp"
-
-	"github.com/gookit/color"
 )
 
 // SQLI is the SQL injection module that will scan a php file for SQLi vulns
@@ -37,7 +35,6 @@ func SQLI(content []byte) (VulnResults, error) {
 				continue
 			} else {
 				match := html.UnescapeString(match)
-				color.Magenta.Println(match)
 				vulnResults.Matches = append(vulnResults.Matches, match)
 			}
 		}

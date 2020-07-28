@@ -9,7 +9,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}\\main.go",
+            "program": "C:\\Users\\AaronWilliams\\go\\src\\github.com\\Zaptitude\\Echidna\\main.go",
             "env": {},
             "args": []
         }
