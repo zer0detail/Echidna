@@ -20,6 +20,9 @@ A spiky Australian bug hunter
 - [ ] dockerfile
 - [ ] add more logging where needed
 - [ ] add more vulnerability modules
+- [X] command execution vulnerability module
 - [ ] ability to select specific vuln modules to run
 - [x] Travis CI integration
 - [ ] Handle GOAWAY
+- [x] get rid of scrolling output
+- [x] make plugins struct thread safe
