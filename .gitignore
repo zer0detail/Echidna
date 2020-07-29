@@ -13,6 +13,9 @@
 
 .test/
 
+# dont commit error.log
+*.log
+
 # tool specific dirs
 current/
 inspect/
