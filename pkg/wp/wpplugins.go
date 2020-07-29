@@ -10,10 +10,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Paraflare/Echidna/pkg/requests"
 	"github.com/Paraflare/Echidna/pkg/vulnerabilities"
+	tm "github.com/buger/goterm"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -28,6 +30,7 @@ var (
 // Plugins struct holds the WordPress Plugins information and satisfies
 // the scanner interface.
 type Plugins struct {
+	sync.Mutex
 	Info struct {
 		Page    int `json:"page"`
 		Pages   int `json:"pages"`
@@ -37,7 +40,8 @@ type Plugins struct {
 	URI          string
 	FilesScanned int
 	VulnsFound   int
-	Vulns        []struct{}
+	LatestVuln   vulnerabilities.Results
+	Vulns        []vulnerabilities.Results
 }
 
 // NewPlugins is the constructor for creating a new *Plugins object with initial data
@@ -61,6 +65,7 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 
 	// Loop until we have scanned ALL plugins
 	for w.FilesScanned != w.Info.Results {
+		//w.printStatus()
 
 		select {
 		// every  time we get back to the top of the loop do a non-blocking check of
@@ -82,14 +87,9 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 				w.RemovePlugin(randPluginIndex)
 
 				go func(ctx context.Context, errChan chan error) {
-					plugin.VulnScan(ctx, &w.FilesScanned, errChan)
+					plugin.VulnScan(ctx, w, errChan)
 					sem.Release(1)
 				}(ctx, errChan)
-
-				// color.Yellow.Print("Plugin count: ")
-				// color.Gray.Printf("%d\t", len(w.Plugins))
-				// color.Yellow.Print("Files Scanned: ")
-				// color.Gray.Printf("%d\n", w.FilesScanned)
 			}
 
 			// If we haven't finished pulling the list of plugins from the store, grab another page and
@@ -108,6 +108,19 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 		}
 	}
 	fmt.Println("Finished scanning all plugins. Happy Hunting!")
+}
+
+func (w *Plugins) printStatus() {
+	tm.Clear()
+
+	tm.MoveCursor(1, 1)
+	tm.Print(tm.Color("Plugin count: ", tm.YELLOW))
+	tm.Print(tm.Color(string(len(w.Plugins)), tm.BLUE))
+	tm.Print(tm.Color("\tFiles Scanned: ", tm.YELLOW))
+	tm.Print(tm.Color(string(w.FilesScanned), tm.BLUE))
+	tm.Printf("Latest Vuln: %v\n", w.LatestVuln)
+
+	tm.Flush()
 }
 
 // Page returns the page property and satisfies the scanner interface.
@@ -143,6 +156,8 @@ func (w *Plugins) addPlugins(ctx context.Context, errChan chan error) {
 		errChan <- err
 		return
 	}
+	w.Lock()
+	defer w.Unlock()
 	for _, plugin := range nextPluginList.Plugins {
 		w.Plugins = append((*w).Plugins, plugin)
 	}
@@ -175,6 +190,8 @@ func (w *Plugins) AddInfo(ctx context.Context) error {
 
 // RemovePlugin takes the random plugin we've just selected and removes it from the plugins object so we dont scan it again later.
 func (w *Plugins) RemovePlugin(i int) {
+	w.Lock()
+	defer w.Unlock()
 	w.Plugins[len(w.Plugins)-1], w.Plugins[i] = w.Plugins[i], w.Plugins[len(w.Plugins)-1]
 	w.Plugins = w.Plugins[:len(w.Plugins)-1]
 
@@ -247,8 +264,11 @@ func (p *Plugin) setDaysSinceUpdate() error {
 
 // VulnScan downloads the plugin, scans each php file for vulnerabilitys and sets it aside
 // for later inspection if somethings found. Otherwise the plugin is then deleted.
-func (p *Plugin) VulnScan(ctx context.Context, filesScanned *int, errChan chan error) {
-	*filesScanned++
+func (p *Plugin) VulnScan(ctx context.Context, plugins *Plugins, errChan chan error) {
+	plugins.Lock()
+	plugins.FilesScanned++
+	plugins.Unlock()
+
 	err := p.setDaysSinceUpdate()
 	if err != nil {
 		errChan <- err
@@ -282,8 +302,12 @@ func (p *Plugin) VulnScan(ctx context.Context, filesScanned *int, errChan chan e
 		if err != nil {
 			errChan <- err
 		}
-		// color.Green.Printf("Potential Vulnerabilities found in plugin: %s\n", p.Name)
-		// color.Green.Println("Moving plugin to inspect/ folder.")
+
+		plugins.Lock()
+		defer plugins.Unlock()
+		plugins.LatestVuln = scanResults
+		plugins.VulnsFound++
+		plugins.Vulns = append(plugins.Vulns, scanResults)
 		return
 
 	}
