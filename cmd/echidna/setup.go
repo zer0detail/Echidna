@@ -3,6 +3,7 @@ package echidna
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -87,8 +88,12 @@ func setupCloseHandler() {
 }
 
 func errorHandler(ctx context.Context, errChan chan error) {
+
 	for {
 		err := <-errChan
-		fmt.Printf("ECHIDNA ERROR: %s\n", err.Error())
+		writeErr := ioutil.WriteFile("errors.txt", []byte(err.Error()), os.ModePerm)
+		if writeErr != nil {
+			log.Fatalf("Failed to log error %s into errors.txt. Closing program since error handling seems broken.", err)
+		}
 	}
 }

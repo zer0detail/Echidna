@@ -65,7 +65,7 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 
 	// Loop until we have scanned ALL plugins
 	for w.FilesScanned != w.Info.Results {
-		//w.printStatus()
+		w.printStatus()
 
 		select {
 		// every  time we get back to the top of the loop do a non-blocking check of
@@ -114,11 +114,13 @@ func (w *Plugins) printStatus() {
 	tm.Clear()
 
 	tm.MoveCursor(1, 1)
-	tm.Print(tm.Color("Plugin count: ", tm.YELLOW))
-	tm.Print(tm.Color(string(len(w.Plugins)), tm.BLUE))
-	tm.Print(tm.Color("\tFiles Scanned: ", tm.YELLOW))
-	tm.Print(tm.Color(string(w.FilesScanned), tm.BLUE))
-	tm.Printf("Latest Vuln: %v\n", w.LatestVuln)
+	tm.Printf("Plugin count: %d\t", len(w.Plugins))
+	tm.Printf("Files Scanned: %d\t", w.FilesScanned)
+	tm.Printf("Vulnerable Plugins so far: %d\n", len(w.Vulns))
+	tm.Printf("\n\t\t\tLatest Vulnerable plugin - %s\n", w.LatestVuln.Plugin)
+	for k := range w.LatestVuln.Modules {
+		tm.Printf("\n\t\t%s\n\t\t\t%s", k, w.LatestVuln.Modules[k])
+	}
 
 	tm.Flush()
 }
