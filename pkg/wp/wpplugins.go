@@ -22,7 +22,7 @@ import (
 const pluginAPI string = "https://api.wordpress.org/plugins/info/1.2/?action=query_plugins&request[per_page]=400&request[page]="
 
 var (
-	sem          = semaphore.NewWeighted(int64(100))
+	sem          = semaphore.NewWeighted(int64(50))
 	seed         = rand.NewSource(time.Now().Unix())
 	randomPicker = rand.New(seed)
 )
