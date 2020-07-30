@@ -1,13 +1,16 @@
 package requests
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 // HTTPClient interface so we can mock http clients in testing
@@ -15,18 +18,16 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-var (
-	client HTTPClient
-)
-
-func init() {
-	client = newHTTPClient()
-}
-
-// newHTTPClient for connection re-use
-func newHTTPClient() HTTPClient {
+// NewHTTPClient for connection re-use
+func NewHTTPClient() HTTPClient {
 	return &http.Client{
+		Timeout: 60 * time.Second,
 		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   60 * time.Second,
+				KeepAlive: 60 * time.Second,
+				DualStack: true,
+			}).DialContext,
 			MaxIdleConns:        100,
 			MaxIdleConnsPerHost: 100,
 		},
@@ -34,7 +35,7 @@ func newHTTPClient() HTTPClient {
 }
 
 // SendRequest sends a get request to an arbitrary site and returns the body
-func SendRequest(ctx context.Context, uri string) ([]byte, error) {
+func SendRequest(ctx context.Context, client HTTPClient, uri string) ([]byte, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
@@ -44,7 +45,6 @@ func SendRequest(ctx context.Context, uri string) ([]byte, error) {
 	res, err := client.Do(req)
 	if err != nil {
 		if strings.Contains(string(err.Error()), "GOAWAY") {
-			client = newHTTPClient()
 			return nil, fmt.Errorf("Error in sendrequest() performing client.Do() with error\n%s\nAttempting to refresh client", err)
 		} else if strings.Contains(err.Error(), "context canceled") {
 			// return nil nil for canceled requests
@@ -72,17 +72,17 @@ func SendRequest(ctx context.Context, uri string) ([]byte, error) {
 }
 
 // Download retrieves a remote file and stores it in the specified filepath
-func Download(ctx context.Context, filepath string, uri string) error {
+func Download(ctx context.Context, client HTTPClient, filepath string, uri string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return fmt.Errorf("NewRequest in download() has failed with error\n %s", err)
 	}
 	req.Header.Set("User-Agent", "Echidna V1.0")
+
 	res, err := client.Do(req)
 	if err != nil {
 		if strings.Contains(err.Error(), "GOAWAY") {
 			fmt.Println("Received GOAWAY, refreshing client")
-			client = newHTTPClient()
 			return nil
 		} else if strings.Contains(err.Error(), "context canceled") {
 			// return nil for canceled requests
@@ -101,6 +101,14 @@ func Download(ctx context.Context, filepath string, uri string) error {
 		// }).Warn("request.go:Download() response body is nil, Skipping download")
 		return fmt.Errorf("request.go:Download() response body is nil")
 	}
+	// Read out res.body into a var and create a new reader because res.body was hitting the client timeout
+	// before we could read it. This uses response body faster to prevent hitting timeouts.
+	bodyBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("request.go:Download() failed to read response body with error\n%s", err)
+	}
+
+	bodyReader := bytes.NewReader(bodyBytes)
 
 	if res.StatusCode != 200 {
 		// log.WithFields(log.Fields{
@@ -115,9 +123,10 @@ func Download(ctx context.Context, filepath string, uri string) error {
 	}
 	defer out.Close()
 
-	_, err = io.Copy(out, res.Body)
+	_, err = io.Copy(out, bodyReader)
 	if err != nil {
 		return fmt.Errorf("Failed to write bytes to file for %s with error\n%s", filepath, err)
 	}
+
 	return nil
 }

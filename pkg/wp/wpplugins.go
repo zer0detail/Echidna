@@ -15,14 +15,13 @@ import (
 
 	"github.com/Paraflare/Echidna/pkg/requests"
 	"github.com/Paraflare/Echidna/pkg/vulnerabilities"
-	tm "github.com/buger/goterm"
 	"golang.org/x/sync/semaphore"
 )
 
 const pluginAPI string = "https://api.wordpress.org/plugins/info/1.2/?action=query_plugins&request[per_page]=400&request[page]="
 
 var (
-	sem          = semaphore.NewWeighted(int64(50))
+	sem          = semaphore.NewWeighted(int64(100))
 	seed         = rand.NewSource(time.Now().Unix())
 	randomPicker = rand.New(seed)
 )
@@ -42,6 +41,7 @@ type Plugins struct {
 	VulnsFound   int
 	LatestVuln   vulnerabilities.Results
 	Vulns        []vulnerabilities.Results
+	client       requests.HTTPClient
 }
 
 // NewPlugins is the constructor for creating a new *Plugins object with initial data
@@ -50,6 +50,7 @@ func NewPlugins(ctx context.Context) (*Plugins, error) {
 
 	plugins.URI = pluginAPI
 	plugins.Info.Page = 1
+	plugins.client = requests.NewHTTPClient()
 
 	err := plugins.AddInfo(ctx)
 	if err != nil {
@@ -62,7 +63,6 @@ func NewPlugins(ctx context.Context) (*Plugins, error) {
 // Scan is the main word press plugin scanner function that controls
 // the execution flow of a full scan. Satisfies the scanner interface.
 func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
-
 	// Loop until we have scanned ALL plugins
 	for w.FilesScanned != w.Info.Results {
 		w.printStatus()
@@ -74,27 +74,9 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 		case <-ctx.Done():
 			return
 		default:
-			// if we have plugins, scan them
-			if len(w.Plugins) > 0 {
-				err := sem.Acquire(ctx, 1)
-				if err != nil {
-					errChan <- fmt.Errorf("wpplugins.go:Scan() - sem.Acquire(ctx, 1) failed with error\n%s", err)
-				}
-				// Choose a random plugin
-				randPluginIndex := randomPicker.Intn(len(w.Plugins))
-				plugin := w.Plugins[randPluginIndex]
-				// Remove it from the list
-				w.RemovePlugin(randPluginIndex)
-
-				go func(ctx context.Context, errChan chan error) {
-					plugin.VulnScan(ctx, w, errChan)
-					sem.Release(1)
-				}(ctx, errChan)
-			}
-
 			// If we haven't finished pulling the list of plugins from the store, grab another page and
 			// add it to PluginList.Plugins
-			if w.Info.Page <= w.Info.Pages {
+			for w.Info.Page <= w.Info.Pages {
 				err := sem.Acquire(ctx, 1)
 				if err != nil {
 					errChan <- fmt.Errorf("wpplugins.go:Scan() - sem.Acquire(ctx, 1) failed with error\n%s", err)
@@ -105,24 +87,44 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 					sem.Release(1)
 				}(ctx, errChan)
 			}
+			// if we have plugins, scan them
+			if len(w.Plugins) > 0 {
+				err := sem.Acquire(ctx, 1)
+				if err != nil {
+					errChan <- fmt.Errorf("wpplugins.go:Scan() - sem.Acquire(ctx, 1) failed with error\n%s", err)
+				}
+				// Choose a random plugin
+				randPluginIndex := randomPicker.Intn(len(w.Plugins))
+				plugin := w.Plugins[randPluginIndex]
+
+				w.RemovePlugin(randPluginIndex)
+				w.FilesScanned++
+
+				go func(ctx context.Context, errChan chan error, i int) {
+					plugin.VulnScan(ctx, w, errChan)
+					sem.Release(1)
+				}(ctx, errChan, randPluginIndex)
+			}
 		}
 	}
 	fmt.Println("Finished scanning all plugins. Happy Hunting!")
 }
 
 func (w *Plugins) printStatus() {
-	tm.Clear()
+	// tm.Clear()
 
-	tm.MoveCursor(1, 1)
-	tm.Printf("Plugin count: %d\t", len(w.Plugins))
-	tm.Printf("Files Scanned: %d\t", w.FilesScanned)
-	tm.Printf("Vulnerable Plugins so far: %d\n", len(w.Vulns))
-	tm.Printf("\n\t\t\tLatest Vulnerable plugin - %s\n", w.LatestVuln.Plugin)
-	for k := range w.LatestVuln.Modules {
-		tm.Printf("\n\t\t%s\n\t\t\t%s", k, w.LatestVuln.Modules[k])
-	}
+	// tm.MoveCursor(1, 1)
+	// tm.Printf("Plugin count: %d\t", len(w.Plugins))
+	// tm.Printf("Files Scanned: %d\t", w.FilesScanned)
+	// tm.Printf("Vulnerable Plugins so far: %d\n", len(w.Vulns))
+	// tm.Printf("\n\t\t\tLatest Vulnerable plugin - %s\n", w.LatestVuln.Plugin)
+	// for k := range w.LatestVuln.Modules {
+	// 	tm.Printf("\n\t\t%s\n\t\t\t%s", k, w.LatestVuln.Modules[k])
+	// }
 
-	tm.Flush()
+	// tm.Flush()
+
+	fmt.Printf("Plugin count %d\tPlugins Scanned: %d\t Vulns found: %d\n", len(w.Plugins), w.FilesScanned, len(w.Vulns))
 }
 
 // Page returns the page property and satisfies the scanner interface.
@@ -147,10 +149,14 @@ func (w *Plugins) addPlugins(ctx context.Context, errChan chan error) {
 
 	uri := w.URI + strconv.Itoa(w.Info.Page)
 
-	rawPluginList, err := requests.SendRequest(ctx, uri)
+	rawPluginList, err := requests.SendRequest(ctx, w.client, uri)
 	if err != nil {
-		errChan <- err
-		return
+		errChan <- fmt.Errorf("addPlugins() error while performing sendRequest(%s) with error \n%s", uri, err)
+		w.Lock()
+		w.client = requests.NewHTTPClient()
+		w.Unlock()
+		w.addPlugins(ctx, errChan)
+
 	}
 	err = json.Unmarshal(rawPluginList, &nextPluginList)
 	if err != nil {
@@ -175,7 +181,7 @@ func (w *Plugins) AddInfo(ctx context.Context) error {
 
 	uri := w.URI + strconv.Itoa(w.Info.Page)
 
-	body, err := requests.SendRequest(ctx, uri)
+	body, err := requests.SendRequest(ctx, w.client, uri)
 	if err != nil {
 		// Die if we can't get WordPress Plugin info. There's no way to continue without it
 		return fmt.Errorf("wpplugins.go:AddInfo() - call to requests.SendRequest(ctx, %s)\n%s", uri, err.Error())
@@ -267,9 +273,6 @@ func (p *Plugin) setDaysSinceUpdate() error {
 // VulnScan downloads the plugin, scans each php file for vulnerabilitys and sets it aside
 // for later inspection if somethings found. Otherwise the plugin is then deleted.
 func (p *Plugin) VulnScan(ctx context.Context, plugins *Plugins, errChan chan error) {
-	plugins.Lock()
-	plugins.FilesScanned++
-	plugins.Unlock()
 
 	err := p.setDaysSinceUpdate()
 	if err != nil {
@@ -280,9 +283,14 @@ func (p *Plugin) VulnScan(ctx context.Context, plugins *Plugins, errChan chan er
 		errChan <- err
 	}
 
-	err = requests.Download(ctx, p.OutPath, p.DownloadLink)
+	err = requests.Download(ctx, plugins.client, p.OutPath, p.DownloadLink)
 	if err != nil {
-		errChan <- err
+		// If Download returns are error, refresh the httpclient and try again
+		errChan <- fmt.Errorf("vulnScan() error while performing Download(%s) with error \n%s", p.DownloadLink, err)
+		plugins.Lock()
+		plugins.client = requests.NewHTTPClient()
+		plugins.Unlock()
+		p.VulnScan(ctx, plugins, errChan)
 	}
 
 	scanResults := vulnerabilities.Results{
@@ -294,7 +302,6 @@ func (p *Plugin) VulnScan(ctx context.Context, plugins *Plugins, errChan chan er
 	if err != nil {
 		return
 	}
-
 	if len(scanResults.Modules) > 0 {
 		err := p.moveToInspect(&scanResults)
 		if err != nil {
