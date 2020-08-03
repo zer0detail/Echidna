@@ -1,8 +1,36 @@
 package echidna
 
-var opts struct {
-	Web     bool `short:"w" long:"web" description:"Start Local web server to interact with Echidna"`
-	Plugins bool `short:"p" long:"plugins" description:"Scan WordPress Plugins"`
-	Themes  bool `short:"t" long:"themes" description:"Scan WordPress Themes"`
-	Help    bool `short:"h" long:"help" description:"Display help"`
+import (
+	"flag"
+	"fmt"
+	"os"
+)
+
+type options struct {
+	Web     *bool
+	Plugins *bool
+	Themes  *bool
+	Help    *bool
+}
+
+func (o *options) Parse() {
+
+	o.Web = flag.Bool("w", false, "Enable web server on port 8080 to display results")
+	o.Plugins = flag.Bool("p", false, "Scan WordPress Plugins")
+	o.Themes = flag.Bool("t", false, "Scan WordPress Themes")
+	o.Help = flag.Bool("h", false, "Displays this help message")
+
+	flag.Parse()
+
+	if *o.Help {
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
+
+	if !(*o.Plugins || *o.Themes) {
+		fmt.Println("No scan target was selected. Use either -p or -t to select a target")
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
+
 }

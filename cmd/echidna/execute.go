@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/Paraflare/Echidna/pkg/wp"
-	flags "github.com/jessevdk/go-flags"
 )
 
 // targetScanner is the struct that holds the target interface which we inject with
@@ -35,6 +34,9 @@ func Execute() {
 	errCh := make(chan error)
 	ctx, cancel := context.WithCancel(context.Background())
 	var scanner *targetScanner
+	var opts options
+
+	opts.Parse()
 
 	// Create directories if they dont exist
 	err := createEchidnaDirs()
@@ -46,30 +48,18 @@ func Execute() {
 	go closeHandler(ctx, cancel, exitCh)
 	go errorHandler(ctx, errCh)
 
-	_, err = flags.Parse(&opts)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	// Inject our target into the scanner based on the users choice (-p/--plugin or -t/--theme)
 	// Select WordPress Plugins as a target if nothing is selected
-	switch {
-	case opts.Plugins:
+	if *opts.Plugins {
 		fmt.Println("Preparing WordPress Plugin Scanner.")
 		plugins, err := wp.NewPlugins(ctx)
 		if err != nil {
 			log.Fatal(err)
 		}
 		scanner = newScanner(plugins)
-	case opts.Themes:
+	}
+	if *opts.Themes {
 		log.Fatal("This functionality isn't built yet. We only have WordPress Plugins for now.")
-	default:
-		fmt.Println("No target selected. Creating a WordPress Plugin Scanner as a default.")
-		plugins, err := wp.NewPlugins(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-		scanner = newScanner(plugins)
 	}
 
 	// Add the initial scanner information such as pages, # of objects to scan, etc
@@ -79,7 +69,7 @@ func Execute() {
 	}
 	// if the user selected web (-w or --web) from the commandline then start
 	// the webserver, otherwise kick off the cli version.
-	if opts.Web {
+	if *opts.Web {
 		go webStart(ctx, errCh, scanner)
 	} else {
 		scanner.Started = true

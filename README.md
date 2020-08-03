@@ -9,7 +9,7 @@ A spiky Australian bug hunter
 ### Progress to v1.0
 
 - [x] Handle basic flags (web, plugins, themes)
-- [ ] Usage function
+- [x] Usage function
 - [ ] Flesh out README
 - [ ] Confirm errors are all being handled as they should (return/fatal/etc)
 - [x] Confirm returned errors are making it back to error handling function
@@ -18,10 +18,8 @@ A spiky Australian bug hunter
 - [ ] > 90% test coverage
 - [ ] Web server front end
 - [ ] dockerfile
-- [ ] add more logging where needed
 - [ ] add more vulnerability modules
 - [X] command execution vulnerability module
-- [ ] ability to select specific vuln modules to run
 - [x] Travis CI integration
 - [x] Handle GOAWAY
 - [x] get rid of scrolling output
