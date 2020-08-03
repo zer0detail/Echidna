@@ -73,8 +73,10 @@ func Execute() {
 	}
 
 	// Add the initial scanner information such as pages, # of objects to scan, etc
-	scanner.Target.AddInfo(ctx)
-
+	err = scanner.Target.AddInfo(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
 	// if the user selected web (-w or --web) from the commandline then start
 	// the webserver, otherwise kick off the cli version.
 	if opts.Web {
