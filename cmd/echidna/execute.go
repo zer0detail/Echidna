@@ -77,14 +77,15 @@ func Execute() {
 		webStart(ctx, errCh, scanner)
 	} else {
 		scanner.Started = true
-		scanner.Target.Scan(ctx, errCh)
+		go scanner.Target.Scan(ctx, errCh)
 	}
 	select {
 	case <-ctx.Done():
 		fmt.Println("Execution canceled. Waiting for close handler to perform cleanup.")
 		<-exitCh
+		fmt.Println("Cleanup complete.")
 		os.Exit(0)
-	default:
+	case <-exitCh:
 		os.Exit(0)
 	}
 

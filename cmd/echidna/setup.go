@@ -69,7 +69,7 @@ func setupCloseHandler(ctx context.Context, cancel context.CancelFunc, exitCh ch
 	go func() {
 		<-c
 		cancel()
-		fmt.Println("Ctrl+C detected. Cancelling scanning goroutines and current web requests.")
+		fmt.Printf("\nCtrl+C detected. Cancelling scanning goroutines and current web requests.\n")
 		// Give the goroutines time to return and free up access to the zip files
 		// so when we delete them we have access
 		time.Sleep(2 * time.Second)
