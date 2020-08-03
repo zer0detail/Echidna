@@ -84,19 +84,21 @@ func setupCloseHandler(ctx context.Context, cancel context.CancelFunc, exitCh ch
 
 func errorHandler(ctx context.Context, errChan chan error) {
 
-	select {
-	case <-ctx.Done():
+	for {
+		select {
+		case <-ctx.Done():
 			return
-	default:
-		recvdErr := <-errChan
+		default:
+			recvdErr := <-errChan
 
-		f, err := os.OpenFile("error.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			log.Fatal("Failed to open error log. Exiting as error handling appears busted")
-		}
-		defer f.Close()
-		if _, err := f.Write([]byte(recvdErr.Error())); err != nil {
-			log.Fatalf("Failed to write error '%s' to error.log. Exiting as error handling appears busted", recvdErr)
+			f, err := os.OpenFile("error.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				log.Fatal("Failed to open error log. Exiting as error handling appears busted")
+			}
+			defer f.Close()
+			if _, err := f.Write([]byte(recvdErr.Error())); err != nil {
+				log.Fatalf("Failed to write error '%s' to error.log. Exiting as error handling appears busted", recvdErr)
+			}
 		}
 	}
 }
