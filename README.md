@@ -12,8 +12,8 @@ A spiky Australian bug hunter
 - [ ] Usage function
 - [ ] Flesh out README
 - [ ] Confirm errors are all being handled as they should (return/fatal/etc)
-- [ ] Confirm returned errors are making it back to error handling function
-- [ ] create a central error handling function(?)
+- [x] Confirm returned errors are making it back to error handling function
+- [x] create a central error handling channel with its own goroutine
 - [x] Dependency Injection for different scanners
 - [ ] > 90% test coverage
 - [ ] Web server front end
@@ -23,6 +23,7 @@ A spiky Australian bug hunter
 - [X] command execution vulnerability module
 - [ ] ability to select specific vuln modules to run
 - [x] Travis CI integration
-- [ ] Handle GOAWAY
+- [x] Handle GOAWAY
 - [x] get rid of scrolling output
 - [x] make plugins struct thread safe
+- [ ] http client stability/errors 
