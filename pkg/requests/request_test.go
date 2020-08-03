@@ -4,35 +4,23 @@ package requests
 //  go tool cover -html="coverage.out"
 
 import (
-	"bytes"
 	"context"
-	"errors"
-	"io/ioutil"
-	"net/http"
 	"reflect"
 	"strings"
 	"testing"
+
+	echidnatesting "github.com/Paraflare/Echidna/test"
 )
 
 // throwing away cancelfunc for now. add again when testing context cancelling
 var ctx, _ = context.WithCancel(context.Background())
-
-// Mock the http.client's Do() func so we can do testing without making  requests
-type mockClient struct {
-}
-
-// Satisfy the HTTPClient interface. Pseudo Do() function
-func (m *mockClient) Do(req *http.Request) (*http.Response, error) {
-	return DoFunc(req)
-}
 
 var (
 	//dir, _ = os.Getwd()
 	//sep    = string(os.PathSeparator)
 	//outpath  = dir + sep + ".." + sep + ".." + sep + ".test" + sep + "test.zip"
 	dummyURI = "http://127.0.0.1:8080"
-	DoFunc   func(req *http.Request) (*http.Response, error)
-	client   = &mockClient{}
+	client   = &echidnatesting.MockClient{}
 )
 
 // func TestConsts(t *testing.T) {
@@ -53,14 +41,7 @@ func TestCreateHTTPClient(t *testing.T) {
 
 func TestSendRequestSuccess(t *testing.T) {
 
-	b := ioutil.NopCloser(bytes.NewReader([]byte("Success")))
-	DoFunc = func(*http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body:       b,
-		}, nil
-	}
-
+	client.SetReply(200, "Success", "")
 	body, err := SendRequest(ctx, client, dummyURI)
 	if err != nil {
 		t.Errorf("Mocked SendRequest(%s) failed with error\n%s", dummyURI, err)
@@ -72,57 +53,37 @@ func TestSendRequestSuccess(t *testing.T) {
 }
 
 func TestSendRequestPageNotFound(t *testing.T) {
-	b := ioutil.NopCloser(bytes.NewReader([]byte("this will 404 ")))
-	DoFunc = func(*http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 404,
-			Body:       b,
-		}, nil
-	}
+
+	client.SetReply(404, "This will 404", "")
 	// Make sure SendRequest returns a protocol error when sending this malformed URI
 	//expectedErr := fmt.Sprintf("Received non 200 StatusCode in SendRequest().\nStatusCode: %d", 404)
 	_, err := SendRequest(ctx, client, dummyURI)
 	if err != nil {
 		if !(strings.Contains(err.Error(), "non 200 StatusCode")) {
 			t.Errorf("Mocked SendRequest(%s) StatusCode check with error\n%s\nExpected: %s\n", dummyURI, err, "test") //expectedErr)
-		} 
+		}
 	}
 
 }
 
 func TestSendRequestDoError(t *testing.T) {
 
-	b := ioutil.NopCloser(bytes.NewReader([]byte("Fail")))
-	dummyErr := "ERROR: Page Not Found"
-	DoFunc = func(*http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 404,
-			Body:       b,
-		}, errors.New(dummyErr)
-	}
-	// Make sure SendRequest returns a protocol error when sending this malformed URI
+	client.SetReply(404, "", "Page Not Found")
 
 	_, err := SendRequest(ctx, client, dummyURI)
 	if !(strings.Contains(err.Error(), "Page Not Found")) {
-		t.Errorf("Mocked SendRequest(%s) failed with error\n%s\nExpected: %s\n", dummyURI, err, dummyErr)
+		t.Errorf("Mocked SendRequest(%s) failed\nReceived: %s\nExpected: Page Not Found\n", dummyURI, err)
 	}
 }
 
 func TestSendRequestGoAway(t *testing.T) {
 
-	b := ioutil.NopCloser(bytes.NewReader([]byte("dummy body")))
-	dummyErr := "GOAWAY"
-	DoFunc = func(*http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body:       b,
-		}, errors.New(dummyErr)
-	}
+	client.SetReply(200, "", "GOAWAY")
 	// Make sure SendRequest returns a protocol error when sending this malformed URI
 
 	_, err := SendRequest(ctx, client, dummyURI)
 	if !(strings.Contains(err.Error(), "GOAWAY")) {
-		t.Errorf("Mocked SendRequest(%s) failed with error\n%s\nExpected: %s\n", dummyURI, err, dummyErr)
+		t.Errorf("Mocked SendRequest(%s) failed \nReceived: %s\nExpected: GOAWAY\n", dummyURI, err)
 	}
 }
 

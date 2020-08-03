@@ -5,8 +5,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	echidnatesting "github.com/Paraflare/Echidna/test"
 )
 
+var client = &echidnatesting.MockClient{}
 var errChan = make(chan error)
 var ctx, _ = context.WithCancel(context.Background())
 
@@ -19,7 +22,7 @@ func TestNewPlugins(t *testing.T) {
 	if pluginType.String() != "*wp.Plugins" {
 		t.Errorf("TestPlugins did not initialize as type *Plugins.\nWant: *Plugins, Got: %s\n", pluginType)
 	}
-	if testPlugins.URI != pluginAPI || testPlugins.Info.Pages < 1 {
+	if testPlugins.URI != pluginAPI || testPlugins.Info.Page != 1 {
 		t.Errorf("Test Plugins variable did not initialize with proper information.\nGot: %#v\n", testPlugins)
 	}
 }
@@ -29,10 +32,12 @@ func TestAddPlugins(t *testing.T) {
 	if err != nil {
 		t.Errorf("NewPlugins() call error with error:\n%s", err)
 	}
+	plugins.client = client
+	client.SetReply(200, client.DummyBody(), "")
 	beforePlugins := len(plugins.Plugins)
 	plugins.addPlugins(ctx, errChan)
 	afterPlugins := len(plugins.Plugins)
-
+	
 	if afterPlugins <= beforePlugins {
 		t.Errorf("Plugin count did not increase after calling .AddPlugins()\nbefore: %d, after: %d\n", beforePlugins, afterPlugins)
 	}
@@ -43,6 +48,8 @@ func TestRemovePlugin(t *testing.T) {
 	if err != nil {
 		t.Errorf("NewPlugins() call error with error:\n%s", err)
 	}
+	plugins.client = client
+	client.SetReply(200, client.DummyBody(), "")
 	plugins.addPlugins(ctx, errChan)
 	beforeRemove := len(plugins.Plugins)
 	plugins.RemovePlugin(1)
@@ -58,6 +65,8 @@ func TestPluginSetOutPath(t *testing.T) {
 	if err != nil {
 		t.Errorf("NewPlugins() call error with error:\n%s", err)
 	}
+	plugins.client = client
+	client.SetReply(200, client.DummyBody(), "")
 	plugins.addPlugins(ctx, errChan)
 	plugin := plugins.Plugins[1]
 	err = plugin.setOutPath()
