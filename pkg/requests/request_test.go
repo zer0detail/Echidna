@@ -82,9 +82,12 @@ func TestSendRequestPageNotFound(t *testing.T) {
 	// Make sure SendRequest returns a protocol error when sending this malformed URI
 	//expectedErr := fmt.Sprintf("Received non 200 StatusCode in SendRequest().\nStatusCode: %d", 404)
 	_, err := SendRequest(ctx, client, dummyURI)
-	if !(strings.Contains(err.Error(), "non 200 StatusCode")) {
-		t.Errorf("Mocked SendRequest(%s) StatusCode check with error\n%s\nExpected: %s\n", dummyURI, err, "test") //expectedErr)
+	if err != nil {
+		if !(strings.Contains(err.Error(), "non 200 StatusCode")) {
+			t.Errorf("Mocked SendRequest(%s) StatusCode check with error\n%s\nExpected: %s\n", dummyURI, err, "test") //expectedErr)
+		} 
 	}
+
 }
 
 func TestSendRequestDoError(t *testing.T) {
