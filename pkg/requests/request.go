@@ -105,7 +105,7 @@ func Download(ctx context.Context, client HTTPClient, filepath string, uri strin
 	// before we could read it. This uses response body faster to prevent hitting timeouts.
 	bodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return fmt.Errorf("request.go:Download() failed to read response body with error\n%s", err)
+		return fmt.Errorf("request.go:Download() failed to read response body with error\t%s", err)
 	}
 
 	bodyReader := bytes.NewReader(bodyBytes)
@@ -115,7 +115,7 @@ func Download(ctx context.Context, client HTTPClient, filepath string, uri strin
 		// 	"status": res.StatusCode,
 		// 	"URI":    uri,
 		// }).Warn("request.go:Download() Did not receive 200 OK, Skipping download.")
-		return fmt.Errorf("Received non 200 StatusCode in SendRequest().\nStatusCode: %d", res.StatusCode)
+		return fmt.Errorf("Received non 200 StatusCode in Download().\tStatusCode: %d", res.StatusCode)
 	}
 	out, err := os.Create(filepath)
 	if err != nil {

@@ -13,8 +13,6 @@ import (
 	"github.com/gookit/color"
 )
 
-var ctx context.Context
-
 func createEchidnaDirs() error {
 	dir, err := os.Getwd()
 	if err != nil {
@@ -63,10 +61,8 @@ func greeting() {
 	color.Yellow.Println("Echidna Scanner running. Browse to http://127.0.0.1:8080 to view status.")
 }
 
-func setupCloseHandler() {
-	// set up context for cancelling goroutines
-	var cancel context.CancelFunc
-	ctx, cancel = context.WithCancel(context.Background())
+func setupCloseHandler(ctx context.Context, cancel context.CancelFunc) {
+
 	// set up goroutine to catch CTRL+C and execute cleanup
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)

@@ -84,7 +84,15 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 				go func(ctx context.Context, errChan chan error) {
 					w.Info.Page++
 					w.addPlugins(ctx, errChan)
-					sem.Release(1)
+					// If we cancel context Scan() will return and sem will be destroyed
+					// but this go func will still try to Release and cause a panic.
+					// So check if we are cancelled first.
+					select {
+					case <-ctx.Done():
+						return
+					default:
+						sem.Release(1)
+					}
 				}(ctx, errChan)
 			}
 			// if we have plugins, scan them
@@ -102,7 +110,15 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 
 				go func(ctx context.Context, errChan chan error, i int) {
 					plugin.VulnScan(ctx, w, errChan)
-					sem.Release(1)
+					// If we cancel context Scan() will return and sem will be destroyed
+					// but this go func will still try to Release and cause a panic.
+					// So check if we are cancelled first.
+					select {
+					case <-ctx.Done():
+						return
+					default:
+						sem.Release(1)
+					}
 				}(ctx, errChan, randPluginIndex)
 			}
 		}
@@ -285,8 +301,16 @@ func (p *Plugin) VulnScan(ctx context.Context, plugins *Plugins, errChan chan er
 
 	err = requests.Download(ctx, plugins.client, p.OutPath, p.DownloadLink)
 	if err != nil {
-		// If Download returns are error, refresh the httpclient and try again
-		errChan <- fmt.Errorf("vulnScan() error while performing Download(%s) with error \n%s", p.DownloadLink, err)
+		if strings.Contains(err.Error(), "404") {
+			// plugin doesnt exist. skip it
+			return
+		}
+		if strings.Contains(err.Error(), "context canceled") {
+			// we cancelled, don't see these errors to errChan
+			return
+		}
+		// It wasn't a 404 or a canceled context so try again
+		errChan <- fmt.Errorf("\nvulnScan() error while performing Download(%s) with error %s", p.DownloadLink, err)
 		plugins.Lock()
 		plugins.client = requests.NewHTTPClient()
 		plugins.Unlock()

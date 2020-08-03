@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/Paraflare/Echidna/pkg/wp"
 	flags "github.com/jessevdk/go-flags"
 )
 
-type scanner struct {
+// targetScanner is the struct that holds the target interface which we inject with
+// whatever target we want to scan. My attempt at DI.
+type targetScanner struct {
 	Target  target
 	Started bool
 }
@@ -18,17 +21,16 @@ type target interface {
 	Scan(context.Context, chan error)
 }
 
-func newScanner(t target) *scanner {
-	return &scanner{
+func newScanner(t target) *targetScanner {
+	return &targetScanner{
 		Target: t,
 	}
 }
 
-// Scanner is the struct that holds the target interface which we inject with
-// whatever target we want to scan. My attempt at DI.
 var (
-	Scanner *scanner
-	errChan = make(chan error)
+	scanner     *targetScanner
+	errChan     = make(chan error)
+	ctx, cancel = context.WithCancel(context.Background())
 )
 
 // Execute is the entry point for echidna
@@ -40,7 +42,7 @@ func Execute() {
 	}
 
 	greeting()
-	setupCloseHandler()
+	go setupCloseHandler(ctx, cancel)
 	go errorHandler(ctx, errChan)
 
 	_, err = flags.Parse(&opts)
@@ -57,7 +59,7 @@ func Execute() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		Scanner = newScanner(plugins)
+		scanner = newScanner(plugins)
 	case opts.Themes:
 		log.Fatal("This functionality isn't built yet. We only have WordPress Plugins for now.")
 	default:
@@ -66,7 +68,7 @@ func Execute() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		Scanner = newScanner(plugins)
+		scanner = newScanner(plugins)
 	}
 
 	// if the user selected web (-w or --web) from the commandline then start
@@ -74,8 +76,18 @@ func Execute() {
 	if opts.Web {
 		webStart()
 	} else {
-		Scanner.Started = true
-		Scanner.Target.Scan(ctx, errChan)
+		scanner.Started = true
+		scanner.Target.Scan(ctx, errChan)
+	}
+
+	select {
+	case <-ctx.Done():
+		for {
+			// context was canceled infinite loop while we wait
+			// for the closehandler to do its things
+		}
+	default:
+		os.Exit(0)
 	}
 
 }

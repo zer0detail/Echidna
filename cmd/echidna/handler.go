@@ -22,15 +22,15 @@ func echidnaStatus(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = html.Execute(w, Scanner)
+	err = html.Execute(w, scanner)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
 func beginScanning(w http.ResponseWriter, r *http.Request) {
-	go Scanner.Target.Scan(ctx, errChan)
+	go scanner.Target.Scan(ctx, errChan)
 	fmt.Println("Scanner started..")
-	Scanner.Started = true
+	scanner.Started = true
 	http.Redirect(w, r, "/", http.StatusFound)
 }
