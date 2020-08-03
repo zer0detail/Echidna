@@ -1,5 +1,6 @@
 GOCMD=go 
 GOBUILD=$(GOCMD) build
+GOINSTALL=$(GOCMD) install
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get 
@@ -16,3 +17,6 @@ build:
 
 lint:
 	$(LINTER) run
+
+install:
+	$(GOINSTALL)
