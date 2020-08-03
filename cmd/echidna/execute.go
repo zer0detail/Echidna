@@ -27,14 +27,14 @@ func newScanner(t target) *targetScanner {
 	}
 }
 
-var (
-	scanner     *targetScanner
-	errChan     = make(chan error)
-	ctx, cancel = context.WithCancel(context.Background())
-)
-
 // Execute is the entry point for echidna
 func Execute() {
+
+	exitCh := make(chan bool, 1)
+	errCh := make(chan error)
+	ctx, cancel := context.WithCancel(context.Background())
+	var scanner *targetScanner
+
 	// Create directories if they dont exist
 	err := createEchidnaDirs()
 	if err != nil {
@@ -42,8 +42,8 @@ func Execute() {
 	}
 
 	greeting()
-	go setupCloseHandler(ctx, cancel)
-	go errorHandler(ctx, errChan)
+	go setupCloseHandler(ctx, cancel, exitCh)
+	go errorHandler(ctx, errCh)
 
 	_, err = flags.Parse(&opts)
 	if err != nil {
@@ -74,18 +74,16 @@ func Execute() {
 	// if the user selected web (-w or --web) from the commandline then start
 	// the webserver, otherwise kick off the cli version.
 	if opts.Web {
-		webStart()
+		webStart(ctx, errCh, scanner)
 	} else {
 		scanner.Started = true
-		scanner.Target.Scan(ctx, errChan)
+		scanner.Target.Scan(ctx, errCh)
 	}
 
 	select {
 	case <-ctx.Done():
-		for {
-			// context was canceled infinite loop while we wait
-			// for the closehandler to do its things
-		}
+		<-exitCh
+		os.Exit(0)
 	default:
 		os.Exit(0)
 	}

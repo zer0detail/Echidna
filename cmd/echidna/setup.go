@@ -61,7 +61,7 @@ func greeting() {
 	color.Yellow.Println("Echidna Scanner running. Browse to http://127.0.0.1:8080 to view status.")
 }
 
-func setupCloseHandler(ctx context.Context, cancel context.CancelFunc) {
+func setupCloseHandler(ctx context.Context, cancel context.CancelFunc, exitCh chan bool) {
 
 	// set up goroutine to catch CTRL+C and execute cleanup
 	c := make(chan os.Signal)
@@ -78,13 +78,16 @@ func setupCloseHandler(ctx context.Context, cancel context.CancelFunc) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		os.Exit(0)
+		exitCh <- true
 	}()
 }
 
 func errorHandler(ctx context.Context, errChan chan error) {
 
-	for {
+	select {
+	case <-ctx.Done():
+			return
+	default:
 		recvdErr := <-errChan
 
 		f, err := os.OpenFile("error.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)

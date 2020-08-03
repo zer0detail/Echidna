@@ -32,12 +32,8 @@ var (
 	//outpath  = dir + sep + ".." + sep + ".." + sep + ".test" + sep + "test.zip"
 	dummyURI = "http://127.0.0.1:8080"
 	DoFunc   func(req *http.Request) (*http.Response, error)
+	client   = &mockClient{}
 )
-
-func init() {
-	// Inject mock http client into request.go's client variable
-	client = &mockClient{}
-}
 
 // func TestConsts(t *testing.T) {
 // 	wantIdleConns := 20
@@ -48,7 +44,7 @@ func init() {
 
 func TestCreateHTTPClient(t *testing.T) {
 
-	testClient := newHTTPClient()
+	testClient := NewHTTPClient()
 	retType := reflect.TypeOf(testClient)
 	if retType.String() != "*http.Client" {
 		t.Errorf("CreateHTTPCLient() returned %s instead of *http.Client\n", retType)
@@ -65,7 +61,7 @@ func TestSendRequestSuccess(t *testing.T) {
 		}, nil
 	}
 
-	body, err := SendRequest(ctx, dummyURI)
+	body, err := SendRequest(ctx, client, dummyURI)
 	if err != nil {
 		t.Errorf("Mocked SendRequest(%s) failed with error\n%s", dummyURI, err)
 	}
@@ -85,7 +81,7 @@ func TestSendRequestPageNotFound(t *testing.T) {
 	}
 	// Make sure SendRequest returns a protocol error when sending this malformed URI
 	//expectedErr := fmt.Sprintf("Received non 200 StatusCode in SendRequest().\nStatusCode: %d", 404)
-	_, err := SendRequest(ctx, dummyURI)
+	_, err := SendRequest(ctx, client, dummyURI)
 	if !(strings.Contains(err.Error(), "non 200 StatusCode")) {
 		t.Errorf("Mocked SendRequest(%s) StatusCode check with error\n%s\nExpected: %s\n", dummyURI, err, "test") //expectedErr)
 	}
@@ -103,7 +99,7 @@ func TestSendRequestDoError(t *testing.T) {
 	}
 	// Make sure SendRequest returns a protocol error when sending this malformed URI
 
-	_, err := SendRequest(ctx, dummyURI)
+	_, err := SendRequest(ctx, client, dummyURI)
 	if !(strings.Contains(err.Error(), "Page Not Found")) {
 		t.Errorf("Mocked SendRequest(%s) failed with error\n%s\nExpected: %s\n", dummyURI, err, dummyErr)
 	}
@@ -121,7 +117,7 @@ func TestSendRequestGoAway(t *testing.T) {
 	}
 	// Make sure SendRequest returns a protocol error when sending this malformed URI
 
-	_, err := SendRequest(ctx, dummyURI)
+	_, err := SendRequest(ctx, client, dummyURI)
 	if !(strings.Contains(err.Error(), "GOAWAY")) {
 		t.Errorf("Mocked SendRequest(%s) failed with error\n%s\nExpected: %s\n", dummyURI, err, dummyErr)
 	}
