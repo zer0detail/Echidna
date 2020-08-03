@@ -19,6 +19,7 @@ type targetScanner struct {
 
 type target interface {
 	Scan(context.Context, chan error)
+	AddInfo(context.Context) error
 }
 
 func newScanner(t target) *targetScanner {
@@ -42,7 +43,7 @@ func Execute() {
 	}
 
 	greeting()
-	go setupCloseHandler(ctx, cancel, exitCh)
+	go closeHandler(ctx, cancel, exitCh)
 	go errorHandler(ctx, errCh)
 
 	_, err = flags.Parse(&opts)
@@ -71,14 +72,19 @@ func Execute() {
 		scanner = newScanner(plugins)
 	}
 
+	// Add the initial scanner information such as pages, # of objects to scan, etc
+	scanner.Target.AddInfo(ctx)
+
 	// if the user selected web (-w or --web) from the commandline then start
 	// the webserver, otherwise kick off the cli version.
 	if opts.Web {
-		webStart(ctx, errCh, scanner)
+		go webStart(ctx, errCh, scanner)
 	} else {
 		scanner.Started = true
 		go scanner.Target.Scan(ctx, errCh)
 	}
+
+	// block here until we are finished or have received a cancel()
 	select {
 	case <-ctx.Done():
 		fmt.Println("Execution canceled. Waiting for close handler to perform cleanup.")

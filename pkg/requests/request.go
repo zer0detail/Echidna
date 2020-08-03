@@ -32,13 +32,13 @@ func SendRequest(ctx context.Context, client HTTPClient, uri string) ([]byte, er
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
-		return nil, fmt.Errorf("\nNewRequestWithContext in SendRequest() has failed with error\n %s", err)
+		return nil, fmt.Errorf("request.go:SendRequest() NewRequestWithContext() has failed with error: %s", err)
 	}
 	req.Header.Set("User-Agent", "Echidna V1.0")
 
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("\nError in SendRequest() performing client.Do() with error\n%s", err)
+		return nil, fmt.Errorf("request.go:SendRequest() failed performing client.Do() with error: %s", err)
 	}
 	defer res.Body.Close()
 
@@ -46,7 +46,7 @@ func SendRequest(ctx context.Context, client HTTPClient, uri string) ([]byte, er
 	// before we could read it. This uses response body faster to prevent hitting timeouts.
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("\nrequest.go:SendRequest() failed to read response body with error\t%s", err)
+		return nil, fmt.Errorf("request.go:SendRequest() failed to read response body with error: %s", err)
 	}
 
 	return body, nil
@@ -58,20 +58,20 @@ func Download(ctx context.Context, client HTTPClient, filepath string, uri strin
 
 	body, err := SendRequest(ctx, client, uri)
 	if err != nil {
-		return err
+		return fmt.Errorf("request.go:Download() Failed to SendRequest for %s with error: %s", uri, err)
 	}
 
 	bodyReader := bytes.NewReader(body)
 
 	out, err := os.Create(filepath)
 	if err != nil {
-		return fmt.Errorf("Failed to create file with os.create() for %s with error\n%s", filepath, err)
+		return fmt.Errorf("request.go:Download() Failed to create file with os.create() for %s with error: %s", filepath, err)
 	}
 	defer out.Close()
 
 	_, err = io.Copy(out, bodyReader)
 	if err != nil {
-		return fmt.Errorf("Failed to write bytes to file for %s with error\n%s", filepath, err)
+		return fmt.Errorf("request.go:Download() Failed to write bytes to file for %s with error: %s", filepath, err)
 	}
 
 	return nil

@@ -4,12 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"math/rand"
-	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -60,12 +56,6 @@ func NewPlugins(ctx context.Context) (*Plugins, error) {
 	plugins.Info.Page = 1
 	plugins.client = requests.NewHTTPClient()
 
-	fmt.Println("Retrieving initial information about current WordPress Plugins")
-	err := plugins.AddInfo(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	return &plugins, nil
 }
 
@@ -76,7 +66,7 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 	var wg sync.WaitGroup
 	// First retrieve all of the plugins from the WordPress store by
 	// iterating over every page available
-	fmt.Println("Requesting plugin information from 50 pages")
+	fmt.Printf("Requesting plugin information from %d pages\n", w.Info.Pages)
 	for w.Info.Page <= w.Info.Pages {
 		select {
 		case <-ctx.Done():
@@ -211,15 +201,11 @@ func (w *Plugins) addPlugins(ctx context.Context, errChan chan error) {
 
 	rawPluginList, err := requests.SendRequest(ctx, w.client, uri)
 	if err != nil {
-		errChan <- fmt.Errorf("addPlugins() error while performing SendRequest(%s) with error \n%s", uri, err)
-		w.skipMu.Lock()
-		w.Skipped++
-		w.skipMu.Unlock()
+		errChan <- fmt.Errorf("Plugins.go:addPlugins() error while performing SendRequest(%s) with error: %s", uri, err)
 	}
 	err = json.Unmarshal(rawPluginList, &nextPluginList)
 	if err != nil {
-
-		errChan <- err
+		errChan <- fmt.Errorf("Plugins.go:addPlugins() error while performing json.Unmarshal with error: %s", err)
 		return
 	}
 	w.mu.Lock()
@@ -242,12 +228,12 @@ func (w *Plugins) AddInfo(ctx context.Context) error {
 	body, err := requests.SendRequest(ctx, w.client, uri)
 	if err != nil {
 		// Die if we can't get WordPress Plugin info. There's no way to continue without it
-		return fmt.Errorf("wpplugins.go:AddInfo() - call to requests.SendRequest(ctx, %s)\n%s", uri, err.Error())
+		return fmt.Errorf("Plugins.go:AddInfo() - call to requests.SendRequest(ctx, %s) error: %s", uri, err.Error())
 	}
 	err = json.Unmarshal(body, &info)
 	if err != nil {
 		// Die if we can't get WordPress Plugin info. There's no way to continue without it
-		return fmt.Errorf("wpplugins.go:AddInfo() - while attempting to unmarshal json from the body with error:\n%s", err.Error())
+		return fmt.Errorf("Plugins.go:AddInfo() - while attempting to unmarshal json from the body with error: %s", err.Error())
 	}
 	w.Info = info.Info
 
@@ -261,221 +247,4 @@ func (w *Plugins) RemovePlugin(i int) {
 	w.Plugins[len(w.Plugins)-1], w.Plugins[i] = w.Plugins[i], w.Plugins[len(w.Plugins)-1]
 	w.Plugins = w.Plugins[:len(w.Plugins)-1]
 
-}
-
-// Plugin struct holds the information for each plugin we iterate through
-type Plugin struct {
-	Name    string `json:"name"`
-	Slug    string `json:"slug"`
-	Version string `json:"version"`
-	Author  string `json:"author"`
-	Ratings struct {
-		Num1 int `json:"1"`
-		Num2 int `json:"2"`
-		Num3 int `json:"3"`
-		Num4 int `json:"4"`
-		Num5 int `json:"5"`
-	} `json:"ratings,omitempty"`
-	NumRatings             int    `json:"num_ratings"`
-	SupportThreads         int    `json:"support_threads"`
-	SupportThreadsResolved int    `json:"support_threads_resolved"`
-	ActiveInstalls         int    `json:"active_installs"`
-	Downloaded             int    `json:"downloaded"`
-	LastUpdated            string `json:"last_updated"`
-	Added                  string `json:"added"`
-	Homepage               string `json:"homepage"`
-	Description            string `json:"description"`
-	ShortDescription       string `json:"short_description"`
-	DownloadLink           string `json:"download_link"`
-	DonateLink             string `json:"donate_link"`
-	Icons                  struct {
-		OneX string `json:"1x"`
-		TwoX string `json:"2x"`
-	} `json:"icons,omitempty"`
-	DaysSinceLastUpdate string
-	OutPath             string
-	FileName            string
-	inspectPath         string
-}
-
-func (p *Plugin) setOutPath() error {
-	fileName := strings.Split(p.DownloadLink, "/")[4]
-	fileName = strconv.Itoa(p.ActiveInstalls) + "_" + p.DaysSinceLastUpdate + "_" + fileName
-
-	p.FileName = fileName
-
-	dir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("wpplugins.go:setOutPath() - os.Getwd() with error\n%s", err)
-	}
-
-	p.OutPath = dir + string(os.PathSeparator) + "current" + string(os.PathSeparator) + fileName
-
-	return nil
-}
-
-func (p *Plugin) setDaysSinceUpdate() error {
-
-	timeLayout := "2006-01-02 3:04pm MST"
-
-	lastUpdateTime, err := time.Parse(timeLayout, p.LastUpdated)
-	if err != nil {
-		return fmt.Errorf("wpplugins.go:setDaysSinceUpdate() time.Parse(%s, %s) failed with error\n%s", timeLayout, p.LastUpdated, err)
-	}
-
-	p.DaysSinceLastUpdate = strconv.Itoa(int(time.Since(lastUpdateTime).Hours() / 24))
-
-	return nil
-}
-
-// Download downloads the plugins zip file and places it into the current/ folder
-func (p *Plugin) Download(ctx context.Context, plugins *Plugins, errChan chan error, queue chan *Plugin) {
-
-	err := p.setDaysSinceUpdate()
-	if err != nil {
-		errChan <- err
-	}
-	err = p.setOutPath()
-	if err != nil {
-		errChan <- err
-	}
-
-	err = requests.Download(ctx, plugins.client, p.OutPath, p.DownloadLink)
-	if err != nil {
-		// Plugin downloads fail for various reasons. If we fail to download one just skip it
-		// there's ~50,000 plugins atm, dropping some is ok.
-		errChan <- fmt.Errorf("\nvulnScan() error while performing Download(%s) with error %s", p.DownloadLink, err)
-		plugins.skipMu.Lock()
-		plugins.Skipped++
-		plugins.skipMu.Unlock()
-		return
-	}
-
-	fmt.Printf("Waiting to put %s in the queue\n", p.Name)
-	// Block until we are cancelled or the queue opens up
-	select {
-	case <-ctx.Done():
-		return
-	case queue <- p:
-		fmt.Printf("Put %s in the queue\n", p.Name)
-		return
-	}
-
-}
-
-// Scan will call the vulnerability packages scanning function to check each file for vulns
-// if it finds vulns the plugin will be moved to the inspect/ folder with the results stored
-// with it as a .txt file with the same name
-func scanWorker(ctx context.Context, errCh chan error, workQueue chan *Plugin, resultsQueue chan vulnerabilities.Results) {
-
-	for p := range workQueue {
-		scanResults := vulnerabilities.Results{
-			Plugin:  p.Name,
-			Modules: make(map[string][]vulnerabilities.VulnResults),
-		}
-
-		err := vulnerabilities.ZipScan(ctx, p.OutPath, &scanResults)
-		if err != nil {
-			errCh <- err
-			removeZip(p.OutPath, errCh)
-			continue
-		}
-		if len(scanResults.Modules) > 0 {
-			err := p.moveToInspect(&scanResults)
-			if err != nil {
-				errCh <- err
-				removeZip(p.OutPath, errCh)
-				continue
-			}
-			err = p.saveResults(&scanResults)
-			if err != nil {
-				errCh <- err
-				continue
-			}
-
-			resultsQueue <- scanResults
-		}
-		removeZip(p.OutPath, errCh)
-	}
-
-}
-
-func resultsWorker(ctx context.Context, errCh chan error, plugins *Plugins, queue chan vulnerabilities.Results) {
-
-	for result := range queue {
-	
-		plugins.resMu.Lock()
-		
-		plugins.LatestVuln = result
-		plugins.VulnsFound++
-		plugins.Vulns = append(plugins.Vulns, result)
-		plugins.FilesScanned++
-
-		plugins.resMu.Unlock()
-	}
-
-}
-
-func removeZip(path string, errCh chan error) {
-	err := os.Remove(path)
-	if err != nil {
-		errCh <- err
-	}
-}
-
-func (p *Plugin) moveToInspect(results *vulnerabilities.Results) error {
-	dir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("wpplugins.go:moveToInspect() - Could not get current working directory with os.Getwd() with error\n%s", err)
-	}
-	// Split results out into the results for each vulnerability module (e.g xss, sqli, etc)
-	for k := range results.Modules {
-		p.inspectPath = dir + string(os.PathSeparator) + "inspect" + string(os.PathSeparator) + k
-		// if a folder for that vuln module doesnt already exist, create it.
-		if _, err := os.Stat(p.inspectPath); os.IsNotExist(err) {
-			err = os.MkdirAll(p.inspectPath, os.ModePerm)
-			if err != nil {
-				return fmt.Errorf("wpplugins.go:moveToInspect() - Failed to create directory %s with error\n%s", p.inspectPath, err)
-			}
-		}
-
-		outfile := p.inspectPath + string(os.PathSeparator) + p.FileName
-
-		src, err := os.Open(p.OutPath)
-		if err != nil {
-			return fmt.Errorf("wpplugins.go:moveToInspect() - failed to os.Open(%s) with error\n%s", p.OutPath, err)
-		}
-		defer src.Close()
-		dst, err := os.Create(outfile)
-		if err != nil {
-			return fmt.Errorf("wpplugins.go:moveToInspect() - failed to os.Create(%s) with error \n%s", p.inspectPath, err)
-		}
-		defer dst.Close()
-
-		_, err = io.Copy(src, dst)
-		if err != nil {
-			return fmt.Errorf("wpplugins.go:moveToInspect() - Could not move %s to inspect folder with error\n%s", p.Name, err)
-		}
-	}
-	return nil
-}
-
-func (p *Plugin) saveResults(results *vulnerabilities.Results) error {
-	dir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("wpplugins.go:saveResults() - Could not get current working directory with os.Getwd() with error\n%s", err)
-	}
-	for k := range results.Modules {
-		file, err := json.MarshalIndent(results.Modules[k], "", " ")
-		if err != nil {
-			return fmt.Errorf("wpplugins.go:saveResults() - Could not MarshalIndent() results for file %s with error\n%s", p.Name, err)
-		}
-		p.inspectPath = dir + string(os.PathSeparator) + "inspect" + string(os.PathSeparator) + k + string(os.PathSeparator) + p.FileName
-		err = ioutil.WriteFile(p.inspectPath+".txt", file, 0644)
-		if err != nil {
-			return fmt.Errorf("wpplugins.go:saveResults() - Could not save results file for %s with error \n%s", p.Name, err)
-		}
-	}
-
-	return nil
 }
