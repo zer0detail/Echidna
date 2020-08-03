@@ -21,5 +21,4 @@ lint:
 install:
 	$(GOINSTALL)
 
-local:
-	lint test install
+local: lint test install
