@@ -52,6 +52,7 @@ func NewPlugins(ctx context.Context) (*Plugins, error) {
 	plugins.Info.Page = 1
 	plugins.client = requests.NewHTTPClient()
 
+	fmt.Println("Retrieving initial information about current WordPress Plugins")
 	err := plugins.AddInfo(ctx)
 	if err != nil {
 		return nil, err
@@ -65,8 +66,6 @@ func NewPlugins(ctx context.Context) (*Plugins, error) {
 func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 	// Loop until we have scanned ALL plugins
 	for w.FilesScanned != w.Info.Results {
-		w.printStatus()
-
 		select {
 		// every  time we get back to the top of the loop do a non-blocking check of
 		// the errors channel. This is so we can constantly check for failed goroutines.
@@ -76,51 +75,55 @@ func (w *Plugins) Scan(ctx context.Context, errChan chan error) {
 		default:
 			// If we haven't finished pulling the list of plugins from the store, grab another page and
 			// add it to PluginList.Plugins
-			for w.Info.Page <= w.Info.Pages {
-				err := sem.Acquire(ctx, 1)
-				if err != nil {
-					errChan <- fmt.Errorf("wpplugins.go:Scan() - sem.Acquire(ctx, 1) failed with error\n%s", err)
+			if w.Info.Page <= w.Info.Pages {
+				// TryAcquire rather than acquire so we dont block and continue to loop and
+				// check for context closure
+				openSlot := sem.TryAcquire(int64(1))
+				if openSlot {
+					go func(ctx context.Context, errChan chan error) {
+						w.Info.Page++
+						w.addPlugins(ctx, errChan)
+						// If we cancel context Scan() will return and sem will be destroyed
+						// but this go func will still try to Release and cause a panic.
+						// So check if we are cancelled first.
+						select {
+						case <-ctx.Done():
+							return
+						default:
+							sem.Release(1)
+						}
+					}(ctx, errChan)
 				}
-				go func(ctx context.Context, errChan chan error) {
-					w.Info.Page++
-					w.addPlugins(ctx, errChan)
-					// If we cancel context Scan() will return and sem will be destroyed
-					// but this go func will still try to Release and cause a panic.
-					// So check if we are cancelled first.
-					select {
-					case <-ctx.Done():
-						return
-					default:
-						sem.Release(1)
-					}
-				}(ctx, errChan)
 			}
 			// if we have plugins, scan them
 			if len(w.Plugins) > 0 {
-				err := sem.Acquire(ctx, 1)
-				if err != nil {
-					errChan <- fmt.Errorf("wpplugins.go:Scan() - sem.Acquire(ctx, 1) failed with error\n%s", err)
+				// TryAcquire rather than acquire so we dont block and continue to loop and
+				// check for context closure
+				openSlot := sem.TryAcquire(int64(1))
+				if openSlot {
+
+					// Choose a random plugin
+					randPluginIndex := randomPicker.Intn(len(w.Plugins))
+					plugin := w.Plugins[randPluginIndex]
+
+					w.RemovePlugin(randPluginIndex)
+					w.FilesScanned++
+
+					go func(ctx context.Context, errChan chan error, i int) {
+						plugin.VulnScan(ctx, w, errChan)
+						// If we cancel context Scan() will return and sem will be destroyed
+						// but this go func will still try to Release and cause a panic.
+						// So check if we are cancelled first.
+						select {
+						case <-ctx.Done():
+							return
+						default:
+							sem.Release(1)
+						}
+					}(ctx, errChan, randPluginIndex)
 				}
-				// Choose a random plugin
-				randPluginIndex := randomPicker.Intn(len(w.Plugins))
-				plugin := w.Plugins[randPluginIndex]
-
-				w.RemovePlugin(randPluginIndex)
-				w.FilesScanned++
-
-				go func(ctx context.Context, errChan chan error, i int) {
-					plugin.VulnScan(ctx, w, errChan)
-					// If we cancel context Scan() will return and sem will be destroyed
-					// but this go func will still try to Release and cause a panic.
-					// So check if we are cancelled first.
-					select {
-					case <-ctx.Done():
-						return
-					default:
-						sem.Release(1)
-					}
-				}(ctx, errChan, randPluginIndex)
 			}
+			w.printStatus()
 		}
 	}
 	fmt.Println("Finished scanning all plugins. Happy Hunting!")

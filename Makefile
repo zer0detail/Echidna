@@ -9,6 +9,13 @@ LINTER=golangci-lint
 
 all: test build 
 
+local: lint test install
+
+clean:
+	cmd /c if exist current rmdir  current /Q /S 
+	cmd /c if exist inspect rmdir inspect  /Q /S
+	cmd /c if exist error.log del /f error.log
+
 test: 
 	$(GOTEST) ./... -v
 
@@ -21,9 +28,3 @@ lint:
 install:
 	$(GOINSTALL)
 
-local: lint test install
-
-clean:
-	cmd /c if exist current rmdir  current /Q /S 
-	cmd /c if exist inspect rmdir inspect  /Q /S
-	cmd /c if exist error.log del /f error.log

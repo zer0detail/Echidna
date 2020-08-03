@@ -78,6 +78,7 @@ func setupCloseHandler(ctx context.Context, cancel context.CancelFunc, exitCh ch
 		if err != nil {
 			log.Fatal(err)
 		}
+		// Let main know it can close.
 		exitCh <- true
 	}()
 }

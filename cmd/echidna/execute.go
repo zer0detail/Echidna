@@ -79,9 +79,9 @@ func Execute() {
 		scanner.Started = true
 		scanner.Target.Scan(ctx, errCh)
 	}
-
 	select {
 	case <-ctx.Done():
+		fmt.Println("Execution canceled. Waiting for close handler to perform cleanup.")
 		<-exitCh
 		os.Exit(0)
 	default:
