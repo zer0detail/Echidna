@@ -20,3 +20,6 @@ lint:
 
 install:
 	$(GOINSTALL)
+
+local:
+	lint test install
