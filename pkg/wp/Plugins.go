@@ -17,7 +17,7 @@ import (
 const pluginAPI string = "https://api.wordpress.org/plugins/info/1.2/?action=query_plugins&request[per_page]=400&request[page]="
 
 var (
-	sem          = semaphore.NewWeighted(int64(100))
+	sem          = semaphore.NewWeighted(int64(200))
 	seed         = rand.NewSource(time.Now().Unix())
 	randomPicker = rand.New(seed)
 )
@@ -35,13 +35,13 @@ type Plugins struct {
 	URI     string
 	client  requests.HTTPClient
 
-	resMu        sync.Mutex
-	VulnsFound   int
-	LatestVuln   vulnerabilities.Results
-	Vulns        []vulnerabilities.Results
+	resMu      sync.Mutex
+	VulnsFound int
+	LatestVuln vulnerabilities.Results
+	Vulns      []vulnerabilities.Results
 
-	scanMu  sync.Mutex
-	Skipped int
+	scanMu       sync.Mutex
+	Skipped      int
 	FilesScanned int
 
 	Queue   chan *Plugin
@@ -105,7 +105,7 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 	defer close(w.Results)
 	// Spawn worker goroutines that will listen on the Queue and scan plugins
 	// that are passed down the channel by w.Download()
-	for workers := 1; workers <= 150; workers++ {
+	for workers := 1; workers <= 200; workers++ {
 		go scanWorker(ctx, errCh, w, w.Queue, w.Results)
 		go resultsWorker(ctx, errCh, w, w.Results)
 	}
@@ -123,7 +123,7 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 			// check for context closure
 			openSlot := sem.TryAcquire(int64(1))
 			if openSlot {
-				//w.printStatus()
+				w.printStatus()
 				// Choose a random plugin
 				randPluginIndex := randomPicker.Intn(len(w.Plugins))
 				plugin := w.Plugins[randPluginIndex]

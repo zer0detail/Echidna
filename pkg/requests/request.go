@@ -18,12 +18,11 @@ type HTTPClient interface {
 
 // NewHTTPClient for connection re-use
 func NewHTTPClient() HTTPClient {
-	fmt.Printf("Refreshing client\n")
 	return &http.Client{
 		Timeout: 120 * time.Second,
 		Transport: &http.Transport{
-			MaxIdleConns:        100,
-			MaxIdleConnsPerHost: 100,
+			MaxIdleConns:        1024,
+			MaxIdleConnsPerHost: 1024,
 		},
 	}
 }
@@ -35,7 +34,7 @@ func measureRequest(start time.Time, uri string) {
 // SendRequest sends a get request to an arbitrary site and returns the body
 func SendRequest(ctx context.Context, client HTTPClient, uri string) ([]byte, error) {
 
-	defer measureRequest(time.Now(), uri)
+	//defer measureRequest(time.Now(), uri)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
