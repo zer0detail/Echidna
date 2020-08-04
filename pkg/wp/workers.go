@@ -10,7 +10,7 @@ import (
 // Scan will call the vulnerability packages scanning function to check each file for vulns
 // if it finds vulns the plugin will be moved to the inspect/ folder with the results stored
 // with it as a .txt file with the same name
-func scanWorker(ctx context.Context, errCh chan error, plugins *Plugins, workQueue chan *Plugin, resultsQueue chan vulnerabilities.Results) {
+func scanWorker(ctx context.Context, errCh chan error, plugins *Plugins, workQueue chan *Plugin, resultsQueue chan *vulnerabilities.Results) {
 
 	for p := range workQueue {
 		scanResults := vulnerabilities.Results{
@@ -40,7 +40,7 @@ func scanWorker(ctx context.Context, errCh chan error, plugins *Plugins, workQue
 				continue
 			}
 
-			resultsQueue <- scanResults
+			resultsQueue <- &scanResults
 		}
 		plugins.scanMu.Lock()
 		plugins.FilesScanned++
@@ -50,15 +50,15 @@ func scanWorker(ctx context.Context, errCh chan error, plugins *Plugins, workQue
 
 }
 
-func resultsWorker(ctx context.Context, errCh chan error, plugins *Plugins, queue chan vulnerabilities.Results) {
+func resultsWorker(ctx context.Context, errCh chan error, plugins *Plugins, resultsQueue chan *vulnerabilities.Results) {
 
-	for result := range queue {
+	for result := range resultsQueue {
 
 		plugins.resMu.Lock()
 
-		plugins.LatestVuln = result
+		plugins.LatestVuln = *result
 		plugins.VulnsFound++
-		plugins.Vulns = append(plugins.Vulns, result)
+		plugins.Vulns = append(plugins.Vulns, *result)
 
 		plugins.resMu.Unlock()
 	}

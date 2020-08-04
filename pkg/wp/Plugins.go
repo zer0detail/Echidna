@@ -45,7 +45,7 @@ type Plugins struct {
 	FilesScanned int
 
 	Queue   chan *Plugin
-	Results chan vulnerabilities.Results
+	Results chan *vulnerabilities.Results
 }
 
 // NewPlugins is the constructor for creating a new *Plugins object with initial data
@@ -100,10 +100,10 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 	wg.Wait()
 	// Channel for vulnerability scanning workers to receive a new plugin to scan on
 	w.Queue = make(chan *Plugin, 10)
-	w.Results = make(chan vulnerabilities.Results, 10)
+	w.Results = make(chan *vulnerabilities.Results, 10)
 	defer close(w.Queue)
 	defer close(w.Results)
-	// Spawn 100 zipScanner goroutines that will listen on the Queue and scan plugins
+	// Spawn worker goroutines that will listen on the Queue and scan plugins
 	// that are passed down the channel by w.Download()
 	for workers := 1; workers <= 150; workers++ {
 		go scanWorker(ctx, errCh, w, w.Queue, w.Results)
