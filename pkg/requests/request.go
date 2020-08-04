@@ -18,6 +18,7 @@ type HTTPClient interface {
 
 // NewHTTPClient for connection re-use
 func NewHTTPClient() HTTPClient {
+	fmt.Printf("Refreshing client\n")
 	return &http.Client{
 		Timeout: 60 * time.Second,
 		Transport: &http.Transport{

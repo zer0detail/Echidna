@@ -70,9 +70,9 @@ func (p *Plugin) Download(ctx context.Context, plugins *Plugins, errChan chan er
 		// Plugin downloads fail for various reasons. If we fail to download one just skip it
 		// there's ~50,000 plugins atm, dropping some is ok.
 		errChan <- fmt.Errorf("Plugin.go:Download() requests.Download(%s) failed with error %s", p.DownloadLink, err)
-		plugins.skipMu.Lock()
+		plugins.scanMu.Lock()
 		plugins.Skipped++
-		plugins.skipMu.Unlock()
+		plugins.scanMu.Unlock()
 		return
 	}
 

@@ -91,7 +91,7 @@ func errorHandler(ctx context.Context, errChan chan error) {
 			return
 		default:
 			recvdErr := <-errChan
-
+			fmt.Printf("ERRCHAN: %s\n", recvdErr)
 			f, err := os.OpenFile("error.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				log.Fatal("Failed to open error log. Exiting as error handling appears busted")

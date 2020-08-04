@@ -10,7 +10,7 @@ import (
 // Scan will call the vulnerability packages scanning function to check each file for vulns
 // if it finds vulns the plugin will be moved to the inspect/ folder with the results stored
 // with it as a .txt file with the same name
-func scanWorker(ctx context.Context, errCh chan error, workQueue chan *Plugin, resultsQueue chan vulnerabilities.Results) {
+func scanWorker(ctx context.Context, errCh chan error, plugins *Plugins, workQueue chan *Plugin, resultsQueue chan vulnerabilities.Results) {
 
 	for p := range workQueue {
 		scanResults := vulnerabilities.Results{
@@ -22,6 +22,7 @@ func scanWorker(ctx context.Context, errCh chan error, workQueue chan *Plugin, r
 		if err != nil {
 			errCh <- err
 			removeZip(p.OutPath, errCh)
+			incSkipped(plugins)
 			continue
 		}
 		if len(scanResults.Modules) > 0 {
@@ -29,16 +30,21 @@ func scanWorker(ctx context.Context, errCh chan error, workQueue chan *Plugin, r
 			if err != nil {
 				errCh <- err
 				removeZip(p.OutPath, errCh)
+				incSkipped(plugins)
 				continue
 			}
 			err = p.saveResults(&scanResults)
 			if err != nil {
 				errCh <- err
+				incSkipped(plugins)
 				continue
 			}
 
 			resultsQueue <- scanResults
 		}
+		plugins.scanMu.Lock()
+		plugins.FilesScanned++
+		plugins.scanMu.Unlock()
 		removeZip(p.OutPath, errCh)
 	}
 
@@ -53,7 +59,6 @@ func resultsWorker(ctx context.Context, errCh chan error, plugins *Plugins, queu
 		plugins.LatestVuln = result
 		plugins.VulnsFound++
 		plugins.Vulns = append(plugins.Vulns, result)
-		plugins.FilesScanned++
 
 		plugins.resMu.Unlock()
 	}
@@ -65,4 +70,10 @@ func removeZip(path string, errCh chan error) {
 	if err != nil {
 		errCh <- err
 	}
+}
+
+func incSkipped(plugins *Plugins) {
+	plugins.scanMu.Lock()
+	plugins.Skipped++
+	plugins.scanMu.Unlock()
 }

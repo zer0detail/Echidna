@@ -36,13 +36,13 @@ type Plugins struct {
 	client  requests.HTTPClient
 
 	resMu        sync.Mutex
-	FilesScanned int
 	VulnsFound   int
 	LatestVuln   vulnerabilities.Results
 	Vulns        []vulnerabilities.Results
 
-	skipMu  sync.Mutex
+	scanMu  sync.Mutex
 	Skipped int
+	FilesScanned int
 
 	Queue   chan *Plugin
 	Results chan vulnerabilities.Results
@@ -105,8 +105,8 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 	defer close(w.Results)
 	// Spawn 100 zipScanner goroutines that will listen on the Queue and scan plugins
 	// that are passed down the channel by w.Download()
-	for workers := 1; workers <= 50; workers++ {
-		go scanWorker(ctx, errCh, w.Queue, w.Results)
+	for workers := 1; workers <= 150; workers++ {
+		go scanWorker(ctx, errCh, w, w.Queue, w.Results)
 		go resultsWorker(ctx, errCh, w, w.Results)
 	}
 	// Loop until we have scanned ALL plugins
