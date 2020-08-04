@@ -123,7 +123,7 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 			// check for context closure
 			openSlot := sem.TryAcquire(int64(1))
 			if openSlot {
-				w.printStatus()
+				//w.printStatus()
 				// Choose a random plugin
 				randPluginIndex := randomPicker.Intn(len(w.Plugins))
 				plugin := w.Plugins[randPluginIndex]
@@ -171,7 +171,7 @@ func (w *Plugins) printStatus() {
 
 	fmt.Printf("Plugin count %5d\t", len(w.Plugins))
 	fmt.Printf("Plugins Scanned: %5d\t", w.FilesScanned)
-	fmt.Printf("Vulns found: %5d\t", len(w.Vulns))
+	fmt.Printf("Vulns found: %5d\t", w.VulnsFound)
 	fmt.Printf("Plugins Skipped (due to errors): %5d\t", w.Skipped)
 	fmt.Printf("Pages: %d/%d\t", w.Info.Page, w.Info.Pages)
 	fmt.Printf("files in queue: %d\n", len(w.Queue))

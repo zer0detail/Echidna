@@ -20,7 +20,7 @@ type HTTPClient interface {
 func NewHTTPClient() HTTPClient {
 	fmt.Printf("Refreshing client\n")
 	return &http.Client{
-		Timeout: 60 * time.Second,
+		Timeout: 120 * time.Second,
 		Transport: &http.Transport{
 			MaxIdleConns:        100,
 			MaxIdleConnsPerHost: 100,
@@ -28,8 +28,14 @@ func NewHTTPClient() HTTPClient {
 	}
 }
 
+func measureRequest(start time.Time, uri string) {
+	fmt.Printf("%.2f time taken for request to %s\n", time.Since(start).Seconds(), uri)
+}
+
 // SendRequest sends a get request to an arbitrary site and returns the body
 func SendRequest(ctx context.Context, client HTTPClient, uri string) ([]byte, error) {
+
+	defer measureRequest(time.Now(), uri)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
