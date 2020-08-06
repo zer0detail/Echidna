@@ -84,9 +84,3 @@ func removeZip(path string, errCh chan error) {
 		errCh <- err
 	}
 }
-
-func incSkipped(plugins *Plugins) {
-	plugins.scanMu.Lock()
-	plugins.Skipped++
-	plugins.scanMu.Unlock()
-}

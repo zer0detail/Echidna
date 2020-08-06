@@ -69,9 +69,9 @@ func DownloadWorker(ctx context.Context, workerID int, DownloadQueue chan Plugin
 	}
 }
 
-func measureRequest(start time.Time, uri string) {
-	fmt.Printf("%.2f time taken for request to %s\n", time.Since(start).Seconds(), uri)
-}
+// func measureRequest(start time.Time, uri string) {
+// 	fmt.Printf("%.2f time taken for request to %s\n", time.Since(start).Seconds(), uri)
+// }
 
 // SendRequest sends a get request to an arbitrary site and returns the body
 func SendRequest(ctx context.Context, client HTTPClient, uri string) ([]byte, error) {

@@ -29,7 +29,6 @@ type Plugins struct {
 		Pages   int `json:"pages"`
 		Results int `json:"results"`
 	} `json:"info"`
-	pluginMu       sync.Mutex
 	Plugins        []Plugin
 	ScannedPlugins []Plugin
 	URI            string
@@ -38,8 +37,7 @@ type Plugins struct {
 	VulnsFound int
 	LatestVuln vulnerabilities.Results
 	Vulns      []vulnerabilities.Results
-
-	scanMu       sync.Mutex
+	
 	Skipped      int
 	FilesScanned int
 }
