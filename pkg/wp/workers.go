@@ -10,57 +10,65 @@ import (
 // Scan will call the vulnerability packages scanning function to check each file for vulns
 // if it finds vulns the plugin will be moved to the inspect/ folder with the results stored
 // with it as a .txt file with the same name
-func scanWorker(ctx context.Context, errCh chan error, plugins *Plugins, workQueue chan *Plugin, resultsQueue chan *vulnerabilities.Results) {
+func scanWorker(ctx context.Context, errCh chan error, filesScanned *int, plugins *[]Plugin, scanQueue chan int, resultsQueue chan vulnerabilities.Results) {
 
-	for p := range workQueue {
-		scanResults := vulnerabilities.Results{
-			Plugin:  p.Name,
-			Modules: make(map[string][]vulnerabilities.VulnResults),
-		}
+	for i := range scanQueue {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			p := (*plugins)[i]
+			scanResults := vulnerabilities.Results{
+				Plugin:  p.Name,
+				Modules: make(map[string][]vulnerabilities.VulnResults),
+			}
 
-		err := vulnerabilities.ZipScan(ctx, p.OutPath, &scanResults)
-		if err != nil {
-			errCh <- err
-			removeZip(p.OutPath, errCh)
-			incSkipped(plugins)
-			continue
-		}
-		if len(scanResults.Modules) > 0 {
-			err := p.moveToInspect(&scanResults)
+			err := vulnerabilities.ZipScan(ctx, p.OutPath, &scanResults)
 			if err != nil {
 				errCh <- err
 				removeZip(p.OutPath, errCh)
-				incSkipped(plugins)
 				continue
 			}
-			err = p.saveResults(&scanResults)
-			if err != nil {
-				errCh <- err
-				incSkipped(plugins)
-				continue
-			}
+			if len(scanResults.Modules) > 0 {
+				err := p.moveToInspect(&scanResults)
+				if err != nil {
+					errCh <- err
+					removeZip(p.OutPath, errCh)
+					continue
+				}
+				err = p.saveResults(&scanResults)
+				if err != nil {
+					errCh <- err
+					continue
+				}
 
-			resultsQueue <- &scanResults
+				resultsQueue <- scanResults
+			}
+			*filesScanned++
+			removeZip(p.OutPath, errCh)
 		}
-		plugins.scanMu.Lock()
-		plugins.FilesScanned++
-		plugins.scanMu.Unlock()
-		removeZip(p.OutPath, errCh)
+
 	}
 
 }
 
-func resultsWorker(ctx context.Context, errCh chan error, plugins *Plugins, resultsQueue chan *vulnerabilities.Results) {
+func resultsWorker(ctx context.Context, errCh chan error, plugins *Plugins, resultsQueue chan vulnerabilities.Results, done chan int) {
 
 	for result := range resultsQueue {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			plugins.resMu.Lock()
 
-		plugins.resMu.Lock()
+			plugins.LatestVuln = result
+			plugins.VulnsFound++
+			plugins.Vulns = append(plugins.Vulns, result)
 
-		plugins.LatestVuln = *result
-		plugins.VulnsFound++
-		plugins.Vulns = append(plugins.Vulns, *result)
+			plugins.resMu.Unlock()
 
-		plugins.resMu.Unlock()
+			done <- 1
+		}
 	}
 
 }

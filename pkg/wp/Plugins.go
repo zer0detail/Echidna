@@ -31,9 +31,11 @@ type Plugins struct {
 		Pages   int `json:"pages"`
 		Results int `json:"results"`
 	} `json:"info"`
-	Plugins []Plugin
-	URI     string
-	client  requests.HTTPClient
+	pluginMu       sync.Mutex
+	Plugins        []Plugin
+	ScannedPlugins []Plugin
+	URI            string
+	client         requests.HTTPClient
 
 	resMu      sync.Mutex
 	VulnsFound int
@@ -43,9 +45,6 @@ type Plugins struct {
 	scanMu       sync.Mutex
 	Skipped      int
 	FilesScanned int
-
-	Queue   chan *Plugin
-	Results chan *vulnerabilities.Results
 }
 
 // NewPlugins is the constructor for creating a new *Plugins object with initial data
@@ -63,52 +62,26 @@ func NewPlugins(ctx context.Context) (*Plugins, error) {
 // the execution flow of a full scan. Satisfies the scanner interface.
 func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 
-	var wg sync.WaitGroup
-	// First retrieve all of the plugins from the WordPress store by
-	// iterating over every page available
-	fmt.Printf("Requesting plugin information from %d pages\n", w.Info.Pages)
-	for w.Info.Page <= w.Info.Pages {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-
-			// TryAcquire rather than acquire so we dont block and continue to loop and
-			// check for context closure
-			openSlot := sem.TryAcquire(int64(1))
-			if openSlot {
-				wg.Add(1)
-				go func(ctx context.Context, errCh chan error) {
-					defer wg.Done()
-					w.Info.Page++
-					w.addPlugins(ctx, errCh)
-					// If we cancel context Scan() will return and sem will be destroyed
-					// but this go func will still try to Release and cause a panic.
-					// So check if we are cancelled first.
-					select {
-					case <-ctx.Done():
-						return
-					default:
-						sem.Release(1)
-					}
-				}(ctx, errCh)
-			}
-		}
-	}
-	fmt.Println("All requests sent. Waiting for all replies to return.")
-	// Wait for all page information to return
-	wg.Wait()
+	w.queryAllStorePages(ctx, errCh)
 	// Channel for vulnerability scanning workers to receive a new plugin to scan on
-	w.Queue = make(chan *Plugin, 10)
-	w.Results = make(chan *vulnerabilities.Results, 10)
-	defer close(w.Queue)
-	defer close(w.Results)
+	DownloadQueue := make(chan requests.PluginReq, len(w.Plugins))
+	ScanQueue := make(chan int, len(w.Plugins))
+	Results := make(chan vulnerabilities.Results, len(w.Plugins))
+	done := make(chan int, len(w.Plugins))
+	defer close(DownloadQueue)
+	defer close(ScanQueue)
+	defer close(Results)
+	defer close(done)
 	// Spawn worker goroutines that will listen on the Queue and scan plugins
 	// that are passed down the channel by w.Download()
 	for workers := 1; workers <= 200; workers++ {
-		go scanWorker(ctx, errCh, w, w.Queue, w.Results)
-		go resultsWorker(ctx, errCh, w, w.Results)
+		go requests.DownloadWorker(ctx, workers, DownloadQueue, ScanQueue, errCh, requests.NewHTTPClient())
+		go scanWorker(ctx, errCh, &(w.FilesScanned), &(w.ScannedPlugins), ScanQueue, Results)
+		go resultsWorker(ctx, errCh, w, Results, done)
+
 	}
+
+	w.ScannedPlugins = make([]Plugin, len(w.Plugins))
 	// Loop until we have scanned ALL plugins
 	for len(w.Plugins) > 0 {
 
@@ -119,40 +92,65 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 		case <-ctx.Done():
 			return
 		default:
-			// TryAcquire rather than acquire so we dont block and continue to loop and
-			// check for context closure
-			openSlot := sem.TryAcquire(int64(1))
-			if openSlot {
-				w.printStatus()
-				// Choose a random plugin
-				randPluginIndex := randomPicker.Intn(len(w.Plugins))
-				plugin := w.Plugins[randPluginIndex]
+			fmt.Printf("\rPlugins left to scan: %6d", len(w.Plugins))
+			// Choose a random plugin
+			randPluginIndex := randomPicker.Intn(len(w.Plugins))
+			w.ScannedPlugins = append(w.ScannedPlugins, w.Plugins[randPluginIndex])
+			w.RemovePlugin(randPluginIndex)
+			index := len(w.ScannedPlugins) - 1
+			go w.ScannedPlugins[index].scan(errCh, index, DownloadQueue)
 
-				w.RemovePlugin(randPluginIndex)
-
-				// Refresh the http client every 1000 requests.
-				// It stops alot of errors
-				if w.FilesScanned%1000 == 0 && w.FilesScanned != 0 {
-					w.client = requests.NewHTTPClient()
-				}
-
-				go func(ctx context.Context, errCh chan error, queue chan *Plugin) {
-					plugin.Download(ctx, w, errCh, queue)
-					// If we cancel context Scan() will return and sem will be destroyed
-					// but this go func will still try to Release and cause a panic.
-					// So check if we are cancelled first.
-					select {
-					case <-ctx.Done():
-						return
-					default:
-						sem.Release(1)
-					}
-				}(ctx, errCh, w.Queue)
-			}
 		}
+	}
+	fmt.Printf("\rPlugins left to scan: %6d\n", len(w.Plugins))
+
+	for i := 0; i <= len(w.ScannedPlugins); i++ {
+		<-done
+		w.printStatus()
 	}
 
 	fmt.Println("Finished scanning all plugins. Happy Hunting!")
+}
+
+func (w *Plugins) queryAllStorePages(ctx context.Context, errCh chan error) {
+	fmt.Printf("Requesting plugin information from %d pages\n", w.Info.Pages)
+	//var wg sync.WaitGroup
+
+	// Create buffered channels for worker requests and results
+	reqCh := make(chan string, w.Info.Pages)
+	resultCh := make(chan []byte, w.Info.Pages)
+	defer close(reqCh)
+	defer close(resultCh)
+
+	// Spin up request workers to receive uri's to request
+	for i := 0; i <= 100; i++ {
+		go requests.ReqWorker(ctx, i, reqCh, resultCh, errCh, requests.NewHTTPClient())
+	}
+	// Send all of the requests to the workers
+	for w.Info.Page <= w.Info.Pages {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			w.Info.Page++
+			uri := w.URI + strconv.Itoa(w.Info.Page)
+			reqCh <- uri
+		}
+	}
+	var wg sync.WaitGroup
+	for i := 1; i <= w.Info.Pages; i++ {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			pluginBody := <-resultCh
+			wg.Add(1)
+			go w.addPlugins(ctx, pluginBody, errCh, &wg)
+		}
+	}
+	fmt.Println("All requests sent. Waiting for all results to return before proceeding.")
+	wg.Wait()
+	fmt.Println("All requests have been returned. Beginning scan")
 }
 
 func (w *Plugins) printStatus() {
@@ -168,13 +166,9 @@ func (w *Plugins) printStatus() {
 	// }
 
 	// tm.Flush()
-
-	fmt.Printf("Plugin count %5d\t", len(w.Plugins))
 	fmt.Printf("Plugins Scanned: %5d\t", w.FilesScanned)
 	fmt.Printf("Vulns found: %5d\t", w.VulnsFound)
-	fmt.Printf("Plugins Skipped (due to errors): %5d\t", w.Skipped)
-	fmt.Printf("Pages: %d/%d\t", w.Info.Page, w.Info.Pages)
-	fmt.Printf("files in queue: %d\n", len(w.Queue))
+	fmt.Printf("Plugins Skipped (due to errors): %5d\n", w.Skipped)
 }
 
 // Page returns the page property and satisfies the scanner interface.
@@ -190,20 +184,15 @@ func (w *Plugins) TotalFiles() int { return w.Info.Results }
 func (w *Plugins) ScannedCount() int { return w.FilesScanned }
 
 // addPlugins retrieves the next page of plugins from the WP store and adds them to the plugins object for scanning
-func (w *Plugins) addPlugins(ctx context.Context, errChan chan error) {
+func (w *Plugins) addPlugins(ctx context.Context, pluginBody []byte, errChan chan error, wg *sync.WaitGroup) {
 
+	defer wg.Done()
 	// create a temporary Plugins object to get the next list of 250 plugins
 	// well then pull out the NextPluginList.Plugins slice and store it back into
 	// the main PluginList for the scanner
 	var nextPluginList Plugins
 
-	uri := w.URI + strconv.Itoa(w.Info.Page)
-
-	rawPluginList, err := requests.SendRequest(ctx, w.client, uri)
-	if err != nil {
-		errChan <- fmt.Errorf("Plugins.go:addPlugins() error while performing SendRequest(%s) with error: %s", uri, err)
-	}
-	err = json.Unmarshal(rawPluginList, &nextPluginList)
+	err := json.Unmarshal(pluginBody, &nextPluginList)
 	if err != nil {
 		errChan <- fmt.Errorf("Plugins.go:addPlugins() error while performing json.Unmarshal with error: %s", err)
 		return

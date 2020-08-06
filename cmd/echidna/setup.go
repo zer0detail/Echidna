@@ -74,10 +74,10 @@ func closeHandler(ctx context.Context, cancel context.CancelFunc, exitCh chan bo
 		// so when we delete them we have access
 		time.Sleep(2 * time.Second)
 		fmt.Println("Attempting to remove current/ directory")
-		err := deleteCurrentDir()
-		if err != nil {
-			log.Fatal(err)
-		}
+		// err := deleteCurrentDir()
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
 		// Let main know it can close.
 		exitCh <- true
 	}()

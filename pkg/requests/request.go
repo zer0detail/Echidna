@@ -27,6 +27,48 @@ func NewHTTPClient() HTTPClient {
 	}
 }
 
+// ReqWorker is the worker responsible for sending requests to a remote site and retrieving the body
+func ReqWorker(ctx context.Context, workerID int, reqCh chan string, resultsCh chan []byte, errCh chan error, client HTTPClient) {
+	for req := range reqCh {
+		body, err := SendRequest(ctx, client, req)
+		if err != nil {
+			errCh <- err
+		}
+		resultsCh <- body
+	}
+}
+
+// PluginReq is a small struct to pass needed plugin info to the download worker
+type PluginReq struct {
+	URI      string
+	FilePath string
+	Index    int
+}
+
+// DownloadWorker is the worker responsible for retrieving requests and downloading zips
+func DownloadWorker(ctx context.Context, workerID int, DownloadQueue chan PluginReq, ScanQueue chan int, errCh chan error, client HTTPClient) {
+	refreshCounter := 0
+	reqCounter := 0
+	for req := range DownloadQueue {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			reqCounter++
+			err := download(ctx, client, req.FilePath, req.URI)
+			if err != nil {
+				//errCh <- err
+				refreshCounter++
+				//fmt.Printf("Worker %d: refreshing client. refreshCount: %d  reqCount: %d\n", workerID, refreshCounter, reqCounter)
+				client = NewHTTPClient()
+				continue
+			}
+			ScanQueue <- req.Index
+		}
+
+	}
+}
+
 func measureRequest(start time.Time, uri string) {
 	fmt.Printf("%.2f time taken for request to %s\n", time.Since(start).Seconds(), uri)
 }
@@ -59,8 +101,8 @@ func SendRequest(ctx context.Context, client HTTPClient, uri string) ([]byte, er
 
 }
 
-// Download retrieves a remote file and stores it in the specified filepath
-func Download(ctx context.Context, client HTTPClient, filepath string, uri string) error {
+// download retrieves a remote file and stores it in the specified filepath
+func download(ctx context.Context, client HTTPClient, filepath string, uri string) error {
 
 	body, err := SendRequest(ctx, client, uri)
 	if err != nil {

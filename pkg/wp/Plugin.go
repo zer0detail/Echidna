@@ -1,7 +1,6 @@
 package wp
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -50,9 +49,9 @@ type Plugin struct {
 	inspectPath         string
 }
 
-// Download downloads the plugins zip file and places it into the current/ folder. 
+// Download downloads the plugins zip file and places it into the current/ folder.
 // It then sends the plugin info down the workQueue ready for the scanWorkers to pick up and scan.
-func (p *Plugin) Download(ctx context.Context, plugins *Plugins, errChan chan error, workQueue chan *Plugin) {
+func (p *Plugin) scan(errChan chan error, pluginIndex int, DownloadQueue chan requests.PluginReq) {
 
 	err := p.setDaysSinceUpdate()
 	if err != nil {
@@ -65,25 +64,11 @@ func (p *Plugin) Download(ctx context.Context, plugins *Plugins, errChan chan er
 		return
 	}
 
-	err = requests.Download(ctx, plugins.client, p.OutPath, p.DownloadLink)
-	if err != nil {
-		// Plugin downloads fail for various reasons. If we fail to download one just skip it
-		// there's ~50,000 plugins atm, dropping some is ok.
-		errChan <- fmt.Errorf("Plugin.go:Download() requests.Download(%s) failed with error %s", p.DownloadLink, err)
-		plugins.scanMu.Lock()
-		plugins.Skipped++
-		plugins.scanMu.Unlock()
-		return
+	DownloadQueue <- requests.PluginReq{
+		URI:      p.DownloadLink,
+		FilePath: p.OutPath,
+		Index:    pluginIndex,
 	}
-
-	// Block until we are cancelled or the queue opens up
-	select {
-	case <-ctx.Done():
-		return
-	case workQueue <- p:
-		return
-	}
-
 }
 
 func (p *Plugin) moveToInspect(results *vulnerabilities.Results) error {
@@ -115,7 +100,7 @@ func (p *Plugin) moveToInspect(results *vulnerabilities.Results) error {
 		}
 		defer dst.Close()
 
-		_, err = io.Copy(src, dst)
+		_, err = io.Copy(dst, src)
 		if err != nil {
 			return fmt.Errorf("Plugin.go:moveToInspect() - Could not io.Copy() %s to inspect folder with error: %s", p.Name, err)
 		}
