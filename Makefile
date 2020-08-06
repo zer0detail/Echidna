@@ -15,7 +15,7 @@ clean:
 	cmd /c if exist current rmdir  current /Q /S 
 	cmd /c if exist inspect rmdir inspect  /Q /S
 	cmd /c if exist cmd\echidna\current rmdir  cmd\echidna\current /Q /S 
-	cmd /c if exist inspect rmdir inspect  /Q /S
+	cmd /c if exist cmd\echidna\inspect rmdir cmd\echidna\inspect  /Q /S
 	cmd /c if exist error.log del /f error.log
 
 tests: 
