@@ -10,13 +10,14 @@ import (
 // Scan will call the vulnerability packages scanning function to check each file for vulns
 // if it finds vulns the plugin will be moved to the inspect/ folder with the results stored
 // with it as a .txt file with the same name
-func scanWorker(ctx context.Context, errCh chan error, filesScanned *int, plugins *[]Plugin, scanQueue chan int, resultsQueue chan vulnerabilities.Results) {
+func scanWorker(ctx context.Context, errCh chan error, filesScanned *int, skipped *int, plugins *[]Plugin, scanQueue chan int, resultsQueue chan vulnerabilities.Results, done chan int) {
 
 	for i := range scanQueue {
 		select {
 		case <-ctx.Done():
 			return
 		default:
+			*filesScanned++
 			p := (*plugins)[i]
 			scanResults := vulnerabilities.Results{
 				Plugin:  p.Name,
@@ -26,6 +27,7 @@ func scanWorker(ctx context.Context, errCh chan error, filesScanned *int, plugin
 			err := vulnerabilities.ZipScan(ctx, p.OutPath, &scanResults)
 			if err != nil {
 				errCh <- err
+				*skipped++
 				removeZip(p.OutPath, errCh)
 				continue
 			}
@@ -33,19 +35,22 @@ func scanWorker(ctx context.Context, errCh chan error, filesScanned *int, plugin
 				err := p.moveToInspect(&scanResults)
 				if err != nil {
 					errCh <- err
+					*skipped++
 					removeZip(p.OutPath, errCh)
 					continue
 				}
 				err = p.saveResults(&scanResults)
 				if err != nil {
+					*skipped++
 					errCh <- err
 					continue
 				}
 
 				resultsQueue <- scanResults
 			}
-			*filesScanned++
+
 			removeZip(p.OutPath, errCh)
+			done <- 1
 		}
 
 	}

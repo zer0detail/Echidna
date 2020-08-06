@@ -11,13 +11,11 @@ import (
 
 	"github.com/Paraflare/Echidna/pkg/requests"
 	"github.com/Paraflare/Echidna/pkg/vulnerabilities"
-	"golang.org/x/sync/semaphore"
 )
 
 const pluginAPI string = "https://api.wordpress.org/plugins/info/1.2/?action=query_plugins&request[per_page]=400&request[page]="
 
 var (
-	sem          = semaphore.NewWeighted(int64(200))
 	seed         = rand.NewSource(time.Now().Unix())
 	randomPicker = rand.New(seed)
 )
@@ -35,7 +33,6 @@ type Plugins struct {
 	Plugins        []Plugin
 	ScannedPlugins []Plugin
 	URI            string
-	client         requests.HTTPClient
 
 	resMu      sync.Mutex
 	VulnsFound int
@@ -53,7 +50,6 @@ func NewPlugins(ctx context.Context) (*Plugins, error) {
 
 	plugins.URI = pluginAPI
 	plugins.Info.Page = 1
-	plugins.client = requests.NewHTTPClient()
 
 	return &plugins, nil
 }
@@ -74,9 +70,9 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 	defer close(done)
 	// Spawn worker goroutines that will listen on the Queue and scan plugins
 	// that are passed down the channel by w.Download()
-	for workers := 1; workers <= 200; workers++ {
+	for workers := 1; workers <= 1000; workers++ {
 		go requests.DownloadWorker(ctx, workers, DownloadQueue, ScanQueue, errCh, requests.NewHTTPClient())
-		go scanWorker(ctx, errCh, &(w.FilesScanned), &(w.ScannedPlugins), ScanQueue, Results)
+		go scanWorker(ctx, errCh, &(w.FilesScanned), &(w.Skipped), &(w.ScannedPlugins), ScanQueue, Results, done)
 		go resultsWorker(ctx, errCh, w, Results, done)
 
 	}
@@ -102,9 +98,9 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 
 		}
 	}
-	fmt.Printf("\rPlugins left to scan: %6d\n", len(w.Plugins))
+	fmt.Printf("\rPlugins left add to worker queue: %6d\n", len(w.Plugins))
 
-	for i := 0; i <= len(w.ScannedPlugins); i++ {
+	for (w.FilesScanned + w.Skipped) != len(w.ScannedPlugins) {
 		<-done
 		w.printStatus()
 	}
@@ -166,9 +162,9 @@ func (w *Plugins) printStatus() {
 	// }
 
 	// tm.Flush()
-	fmt.Printf("Plugins Scanned: %5d\t", w.FilesScanned)
+	fmt.Printf("\rPlugins Scanned: %5d\t", w.FilesScanned)
 	fmt.Printf("Vulns found: %5d\t", w.VulnsFound)
-	fmt.Printf("Plugins Skipped (due to errors): %5d\n", w.Skipped)
+	fmt.Printf("Plugins Skipped (due to errors): %5d", w.Skipped)
 }
 
 // Page returns the page property and satisfies the scanner interface.
@@ -214,7 +210,7 @@ func (w *Plugins) AddInfo(ctx context.Context) error {
 
 	uri := w.URI + strconv.Itoa(w.Info.Page)
 
-	body, err := requests.SendRequest(ctx, w.client, uri)
+	body, err := requests.SendRequest(ctx, requests.NewHTTPClient(), uri)
 	if err != nil {
 		// Die if we can't get WordPress Plugin info. There's no way to continue without it
 		return fmt.Errorf("Plugins.go:AddInfo() - call to requests.SendRequest(ctx, %s) error: %s", uri, err.Error())
