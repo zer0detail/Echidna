@@ -79,7 +79,7 @@ func Execute() {
 	// block here until we are finished or have received a cancel()
 	select {
 	case <-ctx.Done():
-		fmt.Println("Execution canceled. Waiting for close handler to perform cleanup.")
+		fmt.Printf("\nExecution canceled. Waiting for close handler to perform cleanup.")
 		<-exitCh
 		fmt.Println("Cleanup complete.")
 		os.Exit(0)

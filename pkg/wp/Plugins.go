@@ -37,9 +37,10 @@ type Plugins struct {
 	VulnsFound int
 	LatestVuln vulnerabilities.Results
 	Vulns      []vulnerabilities.Results
-	
+
 	Skipped      int
 	FilesScanned int
+	Timer        time.Time
 }
 
 // NewPlugins is the constructor for creating a new *Plugins object with initial data
@@ -97,7 +98,7 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 		}
 	}
 	fmt.Printf("\rPlugins left add to worker queue: %6d\n", len(w.Plugins))
-
+	w.Timer = time.Now()
 	for (w.FilesScanned + w.Skipped) != len(w.ScannedPlugins) {
 		<-done
 		w.printStatus()
@@ -108,7 +109,6 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 
 func (w *Plugins) queryAllStorePages(ctx context.Context, errCh chan error) {
 	fmt.Printf("Requesting plugin information from %d pages\n", w.Info.Pages)
-	//var wg sync.WaitGroup
 
 	// Create buffered channels for worker requests and results
 	reqCh := make(chan string, w.Info.Pages)
@@ -158,11 +158,12 @@ func (w *Plugins) printStatus() {
 	// for k := range w.LatestVuln.Modules {
 	// 	tm.Printf("\n\t\t%s\n\t\t\t%s", k, w.LatestVuln.Modules[k])
 	// }
-
+	elapsed := time.Since(w.Timer).Seconds()
 	// tm.Flush()
 	fmt.Printf("\rPlugins Scanned: %5d\t", w.FilesScanned)
 	fmt.Printf("Vulns found: %5d\t", w.VulnsFound)
-	fmt.Printf("Plugins Skipped (due to errors): %5d", w.Skipped)
+	fmt.Printf("Plugins Skipped (due to errors): %5d\t", w.Skipped)
+	fmt.Printf("Plugins Scanned Per Second: %0.1f", (float64((w.FilesScanned + w.Skipped)) / elapsed))
 }
 
 // Page returns the page property and satisfies the scanner interface.

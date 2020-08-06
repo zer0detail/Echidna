@@ -58,7 +58,7 @@ func greeting() {
 |  __/ (__| | | | | (_| | | | | (_| |
  \___|\___|_| |_|_|\__,_|_| |_|\__,_|`)
 
-	color.Yellow.Println("Echidna Scanner running. Browse to http://127.0.0.1:8080 to view status.")
+	color.Yellow.Println("Echidna WordPress Plugin Bug Hunter")
 }
 
 func closeHandler(ctx context.Context, cancel context.CancelFunc, exitCh chan bool) {
