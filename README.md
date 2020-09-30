@@ -10,22 +10,23 @@ A spiky Australian bug hunter
 
 ## Description
 
-Echidna was born out of laziness. Myself and Misha decided to once again try to enter the Bug Hunting world, but this time we would try to find bugs together. After choosing to start with WordPress Plugins we set out to find some bugs.
-We rather quickly identified that the most soul crushing and time consuming part of looking for bugs was actually choosing which one of the ~50,000 plugins in the WordPress Store to test. Not only that but once you have decided on a plugin and installed it, where do you look first?
+Its hard to enter the bug hunting world. Myself and Misha decided to once again to try and enter it, but this time we would try to find bugs together to help stop the whole "giving up" thing. After choosing to start with WordPress Plugins (since they might give us some easier wins) we set out to find some bugs.
+We pretty quickly figured that the most soul crushing and time consuming part of looking for bugs was actually choosing which one of the ~50,000 plugins in the WordPress Store to test. Not only that but once you have decided on a plugin and installed it, where do you look first?
 So, with these problems in mind, I wrote Echidna. Echidna will scan the entire WordPress Plugin store looking for vulnerabilities using static code analysis modules. Any potentially vulnerable plugins are placed aside in a "inspect" folder along with a text file containing information about which file and line of code potentially contains a vulnerability.
 
 Echidnas workflow can be summed up roughly like this:
 
-1. Pull information about how many pages of plugins are in the store.
-2. Query every page and store information about every plugin that exists.
-3. Pick a random plugin from the list
-4. Download it and Scan it for vulnerabilities
-5. If no vulnerabilities are found go back to step 3
-6. If vulnerabilties are found move the plugin to the inspect folder aswell as a file containing notes about it
-7. Go back to step 3 and repeat until all plugins have been scanned
+1. The tool will pull information about how many pages of plugins are in the store.
+2. it will then query every page and store information about every plugin that exists.
+3. then it will pick a random plugin from the list.
+4. the tool automatically downloads it and scans it for vulnerabilities.
+5. If no vulnerabilities are found it will delete the plugin.
+6. If vulnerabilties are found it will move the plugin to the inspect folder aswell as a create an accompanying file containing notes about the vulnerabilities found.
 
 
-Echidna is able to scan somewhere between 20-70 plugins per second (depending on where its running) and is able to scan every plugin in the WordPress store in under an hour, sometimes much faster.
+Echidna is able to scan somewhere between 20-70 plugins per second (depending on where its running) and is able to scan every plugin in the WordPress store in under an hour, sometimes much faster. Although it is currently not shy about grabbing and abusing all of your bandwidth that it can grab. Optimizations hopefully to come.
+
+TLDR: Echidna is there to help you find your first few CVEs. They likely wont be anything crazy to get you trending on infosec twitter, but that's not the point. They will hopefully give you an easier time slowly sliding into the bug hunting scene.
 
 
 ## Installation
@@ -59,9 +60,30 @@ If you have all the dependencies already, you can make use of the build scripts:
 * `make clean` - clears out the `build` subfolder.
 * `make tests` - runs the tests.
 
-Thanks [OJ](https://twitter.com/TheColonial) for permission to use parts of your awesome [Gobuster](https://twitter.com/TheColonial) project
+Thanks [OJ](https://twitter.com/TheColonial) for permission to use parts of your awesome [Gobuster](https://twitter.com/TheColonial) projects README
 
-### Progress to v1.0
+## Proof It Works
+
+So far Echidna has let the team quickly find and report vulnerabilities to earn the following CVEs. If you get your CVE with help from this tool please
+feel free to reach out to me on twitter (@python2) and I will add yours to the list.
+
+CVE | Bug Class | Hunter
+----|-----------|--------
+CVE-2020-24312 | Database Disclosure | Zerodetail (@python2) & Misha 
+CVE-2020-24313 | Reflected XSS | Zerodetail (@python2) & Misha 
+CVE-2020-24314 | Reflected XSS | Zerodetail (@python2) & Misha 
+CVE-2020-24315 | Authenticated SQLi | Zerodetail (@python2) & Misha 
+CVE-2020-24316 | Reflected XSS | Zerodetail (@python2) & Misha 
+CVE-2020-25033 | Reflected XSS | Pitticus (@Pi77icus)
+CVE-2020-25375 | Stored XSS | Virtuallaik (@virtuallaik)
+CVE-2020-25376 | Reflected XSS | Zerodetail (@python2) & Misha 
+CVE-2020-25377 | Reflected XSS | Zerodetail (@python2) & Misha 
+CVE-2020-25379 | Authenticated SQLi | Zerodetail (@python2) & Misha 
+CVE-2020-25380 | Stored XSS | Zerodetail (@python2) & Misha 
+CVE-2020-25378 | Reflected XSS | Zerodetail (@python2) & Misha 
+
+
+## Progress to v1.0
 
 - [x] Handle basic flags (web, plugins, themes)
 - [x] Usage function
