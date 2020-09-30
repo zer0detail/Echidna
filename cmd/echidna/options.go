@@ -13,6 +13,8 @@ type options struct {
 	Help    *bool
 }
 
+
+// not used anymore. Unless I decide to expand to using a web server or add themes scanning too
 func (o *options) Parse() {
 
 	o.Web = flag.Bool("w", false, "Enable web server on port 8080 to display results")
