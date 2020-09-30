@@ -69,15 +69,15 @@ func closeHandler(ctx context.Context, cancel context.CancelFunc, exitCh chan bo
 	go func() {
 		<-c
 		cancel()
-		fmt.Printf("\nCtrl+C detected. Cancelling scanning goroutines and current web requests.\n")
+		color.Yellow.Printf("\nCtrl+C detected. Cancelling scanning goroutines and current web requests.\n")
 		// Give the goroutines time to return and free up access to the zip files
 		// so when we delete them we have access
 		time.Sleep(2 * time.Second)
-		fmt.Println("Attempting to remove current/ directory")
-		// err := deleteCurrentDir()
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
+		color.Yellow.Println("Attempting to remove current/ directory")
+		err := deleteCurrentDir()
+		if err != nil {
+			log.Fatal(err)
+		}
 		// Let main know it can close.
 		exitCh <- true
 	}()
