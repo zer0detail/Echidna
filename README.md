@@ -1,5 +1,5 @@
 # Echidna
-![Echidna Scanner](https://github.com/Zaptitude/Echidna/blob/master/assets/echidnascan.PNG)
+![Echidna Scanner](https://github.com/Zaptitude/Echidna/blob/master/assets/Echidna.PNG)
 A spiky Australian bug hunter
 
 ## Badges
@@ -28,6 +28,28 @@ Echidna is able to scan somewhere between 20-70 plugins per second (depending on
 
 TLDR: Echidna is there to help you find your first few CVEs. They likely wont be anything crazy to get you trending on infosec twitter, but that's not the point. They will hopefully give you an easier time slowly sliding into the bug hunting scene.
 
+## Usage
+
+Just run the binary. No fuss, no switches, no worries.
+It will automatically create a folder called "Inspect" in the directory where you run it. This directory will slowly fill up with 
+plugins that have been identified as potentially vulnerable. 
+
+The Directory is split up by vulnerability type so pick one that you'd like to pursue and check out the results.
+
+![Echidna modules](https://github.com/Zaptitude/Echidna/blob/master/assets/EchidnaModules.PNG)
+
+Inside each vuln type folder will be the plugins that were identified as maybe vulnerable and a .txt file containing some information about what was found.
+For example, in the picture below i've opened the vulnerability info for the motopress-silder-lite plugin.
+The slides.php file contains a line where the 'id' GET parameter is directly echoed back to the user. This is potentially vulnerable and worth investigating.
+You as the bug hunter can now drag and drop the plugins zip file into your WordPress instance and test it, knowing exactly what part of the plugin you want to go after.
+
+![Echidna Plugins](https://github.com/Zaptitude/Echidna/blob/master/assets/EchidnaPlugins.PNG)
+
+**Tip:** 
+    The naming convention for saved plugins in the inspect folder goes like this:
+    *Active Installions*_*Days Since Last Update*_*Plugin Name*.zip
+    You can use this to quickly pick plugins based on what you want to target.
+    You can instantly see which plugins would have a higher impact (more installs) or which might be easier to find a vuln in (last updated long ago)
 
 ## Installation
 
@@ -87,7 +109,7 @@ CVE-2020-25378 | Reflected XSS | Zerodetail (@python2) & Misha
 
 - [x] Handle basic flags (web, plugins, themes)
 - [x] Usage function
-- [ ] Flesh out README
+- [x] Flesh out README
 - [ ] Confirm errors are all being handled as they should (return/fatal/etc)
 - [x] Confirm returned errors are making it back to error handling function
 - [x] create a central error handling channel with its own goroutine
