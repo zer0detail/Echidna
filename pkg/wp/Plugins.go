@@ -18,6 +18,7 @@ const pluginAPI string = "https://api.wordpress.org/plugins/info/1.2/?action=que
 var (
 	seed         = rand.NewSource(time.Now().Unix())
 	randomPicker = rand.New(seed)
+	numOfWorkers = 50
 )
 
 // Plugins struct holds the WordPress Plugins information and satisfies
@@ -69,7 +70,7 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 	defer close(done)
 	// Spawn worker goroutines that will listen on the Queue and scan plugins
 	// that are passed down the channel by w.Download()
-	for workers := 1; workers <= 20; workers++ {
+	for workers := 1; workers <= numOfWorkers; workers++ {
 		go requests.DownloadWorker(ctx, workers, DownloadQueue, ScanQueue, errCh, requests.NewHTTPClient())
 		go scanWorker(ctx, errCh, &(w.FilesScanned), &(w.Skipped), &(w.ScannedPlugins), ScanQueue, Results, done)
 		go resultsWorker(ctx, errCh, w, Results, done)
@@ -87,7 +88,7 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 		case <-ctx.Done():
 			return
 		default:
-			fmt.Printf("\rPlugins left to scan: %6d", len(w.Plugins))
+			fmt.Printf("\rPlugins left to add to the scan queue: %d", len(w.Plugins))
 			// Choose a random plugin
 			randPluginIndex := randomPicker.Intn(len(w.Plugins))
 			w.ScannedPlugins = append(w.ScannedPlugins, w.Plugins[randPluginIndex])
@@ -117,7 +118,7 @@ func (w *Plugins) queryAllStorePages(ctx context.Context, errCh chan error) {
 	defer close(resultCh)
 
 	// Spin up request workers to receive uri's to request
-	for i := 0; i <= 20; i++ {
+	for i := 0; i <= numOfWorkers; i++ {
 		go requests.ReqWorker(ctx, i, reqCh, resultCh, errCh, requests.NewHTTPClient())
 	}
 	// Send all of the requests to the workers
@@ -163,7 +164,7 @@ func (w *Plugins) printStatus() {
 	fmt.Printf("\rPlugins Scanned: %5d    ", w.FilesScanned)
 	fmt.Printf("Vulns found: %5d    ", w.VulnsFound)
 	fmt.Printf("Plugins Skipped (due to errors): %5d     ", w.Skipped)
-	fmt.Printf("Plugins Scanned Per Second: %0.1f", (float64((w.FilesScanned + w.Skipped)) / elapsed))
+	fmt.Printf("Plugins Scanned Per Second: %0.1f       ", (float64((w.FilesScanned + w.Skipped)) / elapsed))
 }
 
 // Page returns the page property and satisfies the scanner interface.

@@ -40,7 +40,7 @@ With [Go](https://golang.org/dl/) installed on your computer run the following c
 
 ```go get github.com/Zaptitude/Echidna```
 
-`Go get` (without the -d flag) automatically pulls dependencies needed to build the package and then builds and install the binary for you. So you can go ahead and run Echidna straight away.
+`Go get` (without the -d flag) automatically pulls dependencies needed to build the package and then builds and installs the binary for you. So you can go ahead and run Echidna straight away.
 
 ### The other other way
 

@@ -12,13 +12,13 @@ ASMFLAGS="all=-trimpath=$(shell pwd)"
 
 all: clean update lint test darwin windows linux
 
-local: lint tests install
+local: lint test install
 
 install:
 	go install
 
 clean:
-	rm -rf  current/  inspect/ error.log; \
+	rm -rf  current/  inspect/ error.log cmd/echidna/current/ cmd/echidna/inspect build/; \
 	go clean ./... ; \
 	echo "Cleaning Complete."
 
