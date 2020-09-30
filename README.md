@@ -46,10 +46,10 @@ You as the bug hunter can now drag and drop the plugins zip file into your WordP
 ![Echidna Plugins](https://github.com/Zaptitude/Echidna/blob/master/assets/EchidnaPlugins.PNG)
 
 **Tip:** 
-    The naming convention for saved plugins in the inspect folder goes like this:
-    *Active Installions*_*Days Since Last Update*_*Plugin Name*.zip
-    You can use this to quickly pick plugins based on what you want to target.
-    You can instantly see which plugins would have a higher impact (more installs) or which might be easier to find a vuln in (last updated long ago)
+    The naming convention for saved plugins in the inspect folder goes like this:  
+    > *Active Installions*_*Days Since Last Update*_*Plugin Name*.zip  
+    You can use this to quickly pick plugins based on what you want to target.  
+    You can instantly see which plugins would have a higher impact (more installs) or which might be easier to find a vuln in (last updated long ago)  
 
 ## Installation
 
