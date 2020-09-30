@@ -1,6 +1,4 @@
 # Binaries for programs and plugins
-*.exe
-*.exe~
 *.dll
 *.so
 *.dylib
@@ -12,7 +10,8 @@
 *.out
 
 .test/
-build/
+.vscode/
+launch.json
 
 # dont commit error.log
 *.log

@@ -55,7 +55,7 @@ You as the bug hunter can now drag and drop the plugins zip file into your WordP
 
 ### The easy way
 
-<Put something in here about pre built binaries>
+There are prebuilt binaries for each OS sitting in the Build folder.
 
 ### The other way
 
