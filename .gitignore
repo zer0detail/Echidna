@@ -12,6 +12,7 @@
 *.out
 
 .test/
+build/
 
 # dont commit error.log
 *.log

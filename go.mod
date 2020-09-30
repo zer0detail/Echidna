@@ -3,11 +3,11 @@ module github.com/Paraflare/Echidna
 go 1.14
 
 require (
-	github.com/buger/goterm v0.0.0-20200322175922-2f3e71b85129
-	github.com/golangci/golangci-lint v1.27.0 // indirect
-	github.com/gookit/color v1.2.6
-	github.com/jessevdk/go-flags v1.4.0
-	github.com/loov/goda v0.1.3 // indirect
-	github.com/sirupsen/logrus v1.6.0
-	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/gookit/color v1.3.1
+	github.com/kr/text v0.2.0 // indirect
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
+	github.com/stretchr/testify v1.5.1 // indirect
+	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
+	gopkg.in/yaml.v2 v2.2.8 // indirect
 )
