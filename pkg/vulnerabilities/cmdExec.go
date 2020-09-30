@@ -11,16 +11,16 @@ func CMDEXEC(content []byte) (VulnResults, error) {
 	var vulnResults VulnResults
 
 	signatures := []string{
-		`system\(.*\$_.*\)`,
-		`shell_exec\(.*\$_.*\)`,
-		`pass_thru\(.*\$_.*\)`,
-		`proc_open\(.*\$_.*\)`,
-		`popen\(.*\$_.*\)`,
-		`eval\(.*\$_.*\)`,
-		`assert\(.*\$_.*\)`,
+		`[ \n\t\r]system\(.*\$_.*\)`,
+		`[ \n\t\r]shell_exec\(.*\$_.*\)`,
+		`[ \n\t\r]pass_thru\(.*\$_.*\)`,
+		`[ \n\t\r]proc_open\(.*\$_.*\)`,
+		`[ \n\t\r]popen\(.*\$_.*\)`,
+		`[ \n\t\r]eval\(.*\$_.*\)`,
+		`[ \n\t\r]assert\(.*\$_.*\)`,
 	}
 
-	filter := "stripslashes|escape|prepare|esc_|sanitize|isset|int|htmlentities|htmlspecial|intval|wp_strip"
+	filter := "stripslashes|escape|prepare|esc_|sanitize|isset|int|htmlentities|htmlspecial|intval|wp_strip|init_crypt"
 	reFilter, err := regexp.Compile(filter)
 	if err != nil {
 		return vulnResults, fmt.Errorf("cmdExec.go:CmdExec() - error compiling Cmd Execution filter in cmdExec() with error\n%s", err)

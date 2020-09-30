@@ -69,7 +69,7 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 	defer close(done)
 	// Spawn worker goroutines that will listen on the Queue and scan plugins
 	// that are passed down the channel by w.Download()
-	for workers := 1; workers <= 1000; workers++ {
+	for workers := 1; workers <= 20; workers++ {
 		go requests.DownloadWorker(ctx, workers, DownloadQueue, ScanQueue, errCh, requests.NewHTTPClient())
 		go scanWorker(ctx, errCh, &(w.FilesScanned), &(w.Skipped), &(w.ScannedPlugins), ScanQueue, Results, done)
 		go resultsWorker(ctx, errCh, w, Results, done)
@@ -117,7 +117,7 @@ func (w *Plugins) queryAllStorePages(ctx context.Context, errCh chan error) {
 	defer close(resultCh)
 
 	// Spin up request workers to receive uri's to request
-	for i := 0; i <= 100; i++ {
+	for i := 0; i <= 20; i++ {
 		go requests.ReqWorker(ctx, i, reqCh, resultCh, errCh, requests.NewHTTPClient())
 	}
 	// Send all of the requests to the workers
@@ -160,9 +160,9 @@ func (w *Plugins) printStatus() {
 	// }
 	elapsed := time.Since(w.Timer).Seconds()
 	// tm.Flush()
-	fmt.Printf("\rPlugins Scanned: %5d\t", w.FilesScanned)
-	fmt.Printf("Vulns found: %5d\t", w.VulnsFound)
-	fmt.Printf("Plugins Skipped (due to errors): %5d\t", w.Skipped)
+	fmt.Printf("\rPlugins Scanned: %5d    ", w.FilesScanned)
+	fmt.Printf("Vulns found: %5d    ", w.VulnsFound)
+	fmt.Printf("Plugins Skipped (due to errors): %5d     ", w.Skipped)
 	fmt.Printf("Plugins Scanned Per Second: %0.1f", (float64((w.FilesScanned + w.Skipped)) / elapsed))
 }
 

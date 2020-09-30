@@ -34,9 +34,9 @@ func Execute() {
 	errCh := make(chan error)
 	ctx, cancel := context.WithCancel(context.Background())
 	var scanner *targetScanner
-	var opts options
+	//var opts options
 
-	opts.Parse()
+	//opts.Parse()
 
 	// Create directories if they dont exist
 	err := createEchidnaDirs()
@@ -48,33 +48,38 @@ func Execute() {
 	go closeHandler(ctx, cancel, exitCh)
 	go errorHandler(ctx, errCh)
 
+	// not used until i decide to add a web UI or themes scanner
 	// Inject our target into the scanner based on the users choice (-p/--plugin or -t/--theme)
 	// Select WordPress Plugins as a target if nothing is selected
-	if *opts.Plugins {
-		fmt.Println("Preparing WordPress Plugin Scanner.")
-		plugins, err := wp.NewPlugins(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-		scanner = newScanner(plugins)
+	// if *opts.Plugins {
+	fmt.Println("Preparing WordPress Plugin Scanner.")
+	plugins, err := wp.NewPlugins(ctx)
+	if err != nil {
+		log.Fatal(err)
 	}
-	if *opts.Themes {
-		log.Fatal("This functionality isn't built yet. We only have WordPress Plugins for now.")
-	}
+	scanner = newScanner(plugins)
+	// }
+	// if *opts.Themes {
+	// 	log.Fatal("This functionality isn't built yet. We only have WordPress Plugins for now.")
+	// }
 
 	// Add the initial scanner information such as pages, # of objects to scan, etc
 	err = scanner.Target.AddInfo(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// not used until I decide to add web UI or theme scanner
 	// if the user selected web (-w or --web) from the commandline then start
-	// the webserver, otherwise kick off the cli version.
-	if *opts.Web {
-		go webStart(ctx, errCh, scanner)
-	} else {
-		scanner.Started = true
-		go scanner.Target.Scan(ctx, errCh)
-	}
+	// // the webserver, otherwise kick off the cli version.
+	// if *opts.Web {
+	// 	go webStart(ctx, errCh, scanner)
+	// } else {
+	// 	scanner.Started = true
+	// 	go scanner.Target.Scan(ctx, errCh)
+	// }
+	scanner.Started = true
+	go scanner.Target.Scan(ctx, errCh)
 
 	// block here until we are finished or have received a cancel()
 	select {
