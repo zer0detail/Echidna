@@ -52,7 +52,7 @@ func Execute() {
 	// Inject our target into the scanner based on the users choice (-p/--plugin or -t/--theme)
 	// Select WordPress Plugins as a target if nothing is selected
 	// if *opts.Plugins {
-	fmt.Println("Preparing WordPress Plugin Scanner.")
+	fmt.Println("Preparing the scanner. Happy bug hunting!")
 	plugins, err := wp.NewPlugins(ctx)
 	if err != nil {
 		log.Fatal(err)

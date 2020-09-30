@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gookit/color"
 	"math/rand"
 	"strconv"
 	"sync"
@@ -80,36 +81,48 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 	w.ScannedPlugins = make([]Plugin, len(w.Plugins))
 	// Loop until we have scanned ALL plugins
 	for len(w.Plugins) > 0 {
-
+		// Choose a random plugin
+		randPluginIndex := randomPicker.Intn(len(w.Plugins))
+		w.ScannedPlugins = append(w.ScannedPlugins, w.Plugins[randPluginIndex])
+		w.RemovePlugin(randPluginIndex)
+		index := len(w.ScannedPlugins) - 1
+		go w.ScannedPlugins[index].scan(errCh, index, DownloadQueue)
+	}
+	w.Timer = time.Now()
+	for (w.FilesScanned + w.Skipped) != len(w.ScannedPlugins) {
 		select {
 		// every  time we get back to the top of the loop do a non-blocking check of
-		// the errors channel. This is so we can constantly check for failed goroutines.
-		// without hanging on a blocking channel read.
+		// the background context to see if we should cancel or not. We cancel if someone
+		// pressed ctrl+c.
 		case <-ctx.Done():
 			return
 		default:
-			fmt.Printf("\rPlugins left to add to the scan queue: %d", len(w.Plugins))
-			// Choose a random plugin
-			randPluginIndex := randomPicker.Intn(len(w.Plugins))
-			w.ScannedPlugins = append(w.ScannedPlugins, w.Plugins[randPluginIndex])
-			w.RemovePlugin(randPluginIndex)
-			index := len(w.ScannedPlugins) - 1
-			go w.ScannedPlugins[index].scan(errCh, index, DownloadQueue)
-
+			<-done
+			w.printStatus()
 		}
-	}
-	fmt.Printf("\rPlugins left add to worker queue: %6d\n", len(w.Plugins))
-	w.Timer = time.Now()
-	for (w.FilesScanned + w.Skipped) != len(w.ScannedPlugins) {
-		<-done
-		w.printStatus()
 	}
 
 	fmt.Println("Finished scanning all plugins. Happy Hunting!")
 }
 
 func (w *Plugins) queryAllStorePages(ctx context.Context, errCh chan error) {
-	fmt.Printf("Requesting plugin information from %d pages\n", w.Info.Pages)
+	color.Blue.Println("-----------------------------------------------------")
+	color.Blue.Printf("|")
+	color.Green.Printf(" [+] ")
+	fmt.Printf("Number of Worker routines: %d\n", numOfWorkers)
+	color.Blue.Printf("|")
+	color.Green.Printf(" [+] ")
+	fmt.Printf("Analysis Modules:\t\t")
+	for module := range vulnerabilities.Modules {
+		fmt.Printf(" %s ", module)
+	}
+	fmt.Printf("\n")
+	color.Blue.Printf("|")
+	color.Green.Printf(" [+] ")
+	fmt.Printf("Plugin store page:\t %d\n", w.Info.Pages)
+	color.Blue.Printf("|")
+	color.Green.Printf(" [+] ")
+	fmt.Printf("Total Plugins to scan:\t %d", len(w.Plugins))
 
 	// Create buffered channels for worker requests and results
 	reqCh := make(chan string, w.Info.Pages)
@@ -138,33 +151,33 @@ func (w *Plugins) queryAllStorePages(ctx context.Context, errCh chan error) {
 		case <-ctx.Done():
 			return
 		default:
+			color.Blue.Printf("\r|")
+			color.Green.Printf(" [+] ")
+			fmt.Printf("Total Plugins to scan:\t %d", len(w.Plugins))
 			pluginBody := <-resultCh
 			wg.Add(1)
 			go w.addPlugins(ctx, pluginBody, errCh, &wg)
 		}
 	}
-	fmt.Println("All requests sent. Waiting for all results to return before proceeding.")
+	color.Blue.Printf("\r|")
+	color.Green.Printf(" [+] ")
+	fmt.Printf("Total Plugins to scan:\t %d\n", len(w.Plugins))
+	color.Blue.Printf("-----------------------------------------------------\n")
 	wg.Wait()
-	fmt.Println("All requests have been returned. Beginning scan")
 }
 
 func (w *Plugins) printStatus() {
-	// tm.Clear()
 
-	// tm.MoveCursor(1, 1)
-	// tm.Printf("Plugin count: %d\t", len(w.Plugins))
-	// tm.Printf("Files Scanned: %d\t", w.FilesScanned)
-	// tm.Printf("Vulnerable Plugins so far: %d\n", len(w.Vulns))
-	// tm.Printf("\n\t\t\tLatest Vulnerable plugin - %s\n", w.LatestVuln.Plugin)
-	// for k := range w.LatestVuln.Modules {
-	// 	tm.Printf("\n\t\t%s\n\t\t\t%s", k, w.LatestVuln.Modules[k])
-	// }
 	elapsed := time.Since(w.Timer).Seconds()
-	// tm.Flush()
-	fmt.Printf("\rPlugins Scanned: %5d    ", w.FilesScanned)
-	fmt.Printf("Vulns found: %5d    ", w.VulnsFound)
-	fmt.Printf("Plugins Skipped (due to errors): %5d     ", w.Skipped)
-	fmt.Printf("Plugins Scanned Per Second: %0.1f       ", (float64((w.FilesScanned + w.Skipped)) / elapsed))
+
+	fmt.Printf("\rPlugins Scanned: ")
+	color.LightGreen.Printf("%5d    ", w.FilesScanned)
+	fmt.Printf("Vulns found:")
+	color.Green.Printf("%5d    ", w.VulnsFound)
+	fmt.Printf("Plugins Skipped (due to errors): ")
+	color.Red.Printf("%5d     ", w.Skipped)
+	fmt.Printf("Plugins Scanned Per Second: ")
+	color.Gray.Printf("%0.1f       ", (float64((w.FilesScanned + w.Skipped)) / elapsed))
 }
 
 // Page returns the page property and satisfies the scanner interface.

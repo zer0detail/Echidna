@@ -50,15 +50,19 @@ func deleteCurrentDir() error {
 }
 
 func greeting() {
-	color.LightCyan.Println(`
-	   _     _     _             
+	color.Blue.Println("-----------------------------------------------------")
+	color.Green.Println(`	   _     _     _             
           | |   (_)   | |            
   ___  ___| |__  _  __| |_ __   __ _ 
  / _ \/ __| '_ \| |/ _' | '_ \ / _' |
 |  __/ (__| | | | | (_| | | | | (_| |
  \___|\___|_| |_|_|\__,_|_| |_|\__,_|`)
 
+	color.Blue.Println("-----------------------------------------------------")
+	color.Yellow.Println("v1.0 - written by zerodetail @pyth0n2. ")
+	color.Yellow.Println("Thanks to ParaFlare and the SOC crew.")
 	color.Yellow.Println("Echidna WordPress Plugin Bug Hunter")
+	color.Blue.Printf("-----------------------------------------------------\n\n")
 }
 
 func closeHandler(ctx context.Context, cancel context.CancelFunc, exitCh chan bool) {
@@ -73,7 +77,7 @@ func closeHandler(ctx context.Context, cancel context.CancelFunc, exitCh chan bo
 		// Give the goroutines time to return and free up access to the zip files
 		// so when we delete them we have access
 		time.Sleep(2 * time.Second)
-		color.Yellow.Println("Attempting to remove current/ directory")
+		color.Yellow.Printf("\nAttempting to remove current/ directory\n")
 		err := deleteCurrentDir()
 		if err != nil {
 			log.Fatal(err)

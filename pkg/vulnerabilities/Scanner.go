@@ -8,9 +8,11 @@ import (
 	"strings"
 )
 
-var modules = map[string]func([]byte) (VulnResults, error){
-	"XSS":  XSS,
-	"SQLI": SQLI,
+// Modules contains a map of the currently available analysis functions. its exported so the scanner can print
+// what functions exist more dynamically. Update this if you add a new analysis module to have it run.
+var Modules = map[string]func([]byte) (VulnResults, error){
+	"XSS":     XSS,
+	"SQLI":    SQLI,
 	"CMDEXEC": CMDEXEC,
 }
 
@@ -66,7 +68,7 @@ func ZipScan(ctx context.Context, zipPath string, fileResults *Results) error {
 						continue
 					}
 
-					for module, moduleFunc := range modules {
+					for module, moduleFunc := range Modules {
 						vulns, err := moduleFunc(content)
 						if err != nil {
 							// log.WithFields(log.Fields{
