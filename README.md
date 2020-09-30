@@ -1,5 +1,5 @@
 # Echidna
-![Echidna Scanner](https://github.com/Zaptitude/Echidna/tree/master/assets/echidnascan.PNG "Echidna")
+![Echidna Scanner](https://github.com/Zaptitude/Echidna/tree/master/assets/echidnascan.PNG)
 A spiky Australian bug hunter
 
 ## Badges
