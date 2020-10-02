@@ -8,16 +8,16 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -o Echidna -ldflags="-s -w" -gcflags="a
 
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates \
-    && rm -rf /var/cache/*
-
 RUN mkdir -p /app \
     && adduser -D Echidna \
-    && chown -R echidna:echidna /app
+    && chown -R Echidna:Echidna /app
 
-USER echidna
+USER Echidna
 WORKDIR /app
 
-COPY --from=build-env /src/echidna .
+ARG APP_VOLUME=/app
+VOLUME [${APP_VOLUME}]
+
+COPY --from=build-env /src/Echidna .
 
 ENTRYPOINT [ "./Echidna" ]
