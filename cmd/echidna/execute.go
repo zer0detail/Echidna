@@ -53,6 +53,7 @@ func Execute() {
 	// Select WordPress Plugins as a target if nothing is selected
 	// if *opts.Plugins {
 	fmt.Println("Preparing the scanner. Happy bug hunting!")
+	fmt.Println("Once the scanning has started check the inspect folder in this directory.")
 	plugins, err := wp.NewPlugins(ctx)
 	if err != nil {
 		log.Fatal(err)
