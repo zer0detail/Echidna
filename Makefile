@@ -7,8 +7,8 @@ NAME=Echidna
 TARGET=./build
 ARCHS=amd64 386
 LDFLAGS="-s -w"
-GCFLAGS="all=-trimpath=$(shell pwd)"
-ASMFLAGS="all=-trimpath=$(shell pwd)"
+GCFLAGS="all=-trimpath=$(pwd)"
+ASMFLAGS="all=-trimpath=$(pwd)"
 
 all: clean update lint test darwin windows linux
 
