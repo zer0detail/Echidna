@@ -89,7 +89,7 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 		go w.ScannedPlugins[index].scan(errCh, index, DownloadQueue)
 	}
 	w.Timer = time.Now()
-	for (w.FilesScanned + w.Skipped) != len(w.ScannedPlugins) {
+	for (w.FilesScanned + w.Skipped) != w.Info.Results {
 		select {
 		// every  time we get back to the top of the loop do a non-blocking check of
 		// the background context to see if we should cancel or not. We cancel if someone

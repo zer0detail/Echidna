@@ -6,18 +6,17 @@ import (
 	"regexp"
 )
 
-// CMDEXEC is the function that searches PHP code for common RCE vulnerability patterns
-func CMDEXEC(content []byte) (VulnResults, error) {
+// LFI is the function that searches PHP code for common Local File Inclusion vulnerability patterns
+func LFI(content []byte) (VulnResults, error) {
 	var vulnResults VulnResults
 
 	signatures := []string{
-		`[ \n\t\r]system\(.*\$_.*\)`,
-		`[ \n\t\r]shell_exec\(.*\$_.*\)`,
-		`[ \n\t\r]pass_thru\(.*\$_.*\)`,
-		`[ \n\t\r]proc_open\(.*\$_.*\)`,
-		`[ \n\t\r]popen\(.*\$_.*\)`,
-		`[ \n\t\r]eval\(.*\$_.*\)`,
-		`[ \n\t\r]assert\(.*\$_.*\)`,
+		`[ \n\t\r]require\(.*\$_.*\)`,
+		`[ \n\t\r]require_once\(.*\$_.*\)`,
+		`[ \n\t\r]include_once\(.*\$_.*\)`,
+		`[ \n\t\r]include\(.*\$_.*\)`,
+		`[ \n\t\r]fopen\(.*\$_.*\)`,
+		`[ \n\t\r]file_get_contents\(.*\$_.*\)`,
 	}
 
 	filter := "stripslashes|escape|prepare|esc_|sanitize|isset|int|htmlentities|htmlspecial|intval|wp_strip|init_crypt"
