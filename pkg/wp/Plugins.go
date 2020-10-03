@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gookit/color"
 	"math/rand"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/gookit/color"
 
 	"github.com/Paraflare/Echidna/pkg/requests"
 	"github.com/Paraflare/Echidna/pkg/vulnerabilities"
@@ -89,7 +90,7 @@ func (w *Plugins) Scan(ctx context.Context, errCh chan error) {
 		go w.ScannedPlugins[index].scan(errCh, index, DownloadQueue)
 	}
 	w.Timer = time.Now()
-	for (w.FilesScanned + w.Skipped) != w.Info.Results {
+	for (w.FilesScanned + w.Skipped) <= w.Info.Results {
 		select {
 		// every  time we get back to the top of the loop do a non-blocking check of
 		// the background context to see if we should cancel or not. We cancel if someone
@@ -119,7 +120,7 @@ func (w *Plugins) queryAllStorePages(ctx context.Context, errCh chan error) {
 	fmt.Printf("\n")
 	color.Blue.Printf("|")
 	color.Green.Printf(" [+] ")
-	fmt.Printf("Plugin store page:\t %d\n", w.Info.Pages)
+	fmt.Printf("Plugin store pages:\t %d\n", w.Info.Pages)
 	color.Blue.Printf("|")
 	color.Green.Printf(" [+] ")
 	fmt.Printf("Total Plugins to scan:\t %d", len(w.Plugins))
